@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BASIC_RECORD — Картотека паспортов</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #fff;
+    --border: #e0e4e8;
+    --text: #1a1d23;
+    --text2: #637083;
+    --accent: #2266e2;
+    --accent-light: #edf2ff;
+    --green: #0b7d4b;
+    --green-light: #e6f7ef;
+    --amber: #b45a05;
+    --amber-light: #fef7e8;
+    --purple: #6941c6;
+    --purple-light: #f3effb;
+    --cyan: #0b7a8a;
+    --cyan-light: #e6f6f9;
+    --pink: #b52d6a;
+    --pink-light: #fceef5;
+    --radius: 10px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+  }
+
+  .header { text-align: center; padding: 2.5rem 1rem 1.5rem; }
+  .header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+  .header p { color: var(--text2); font-size: .9rem; margin-top: .3rem; }
+  .header .badge { display:inline-block; margin-top:.6rem; background:var(--accent-light); color:var(--accent); font-size:.75rem; font-weight:600; padding:.25rem .75rem; border-radius:999px; }
+
+  .container { max-width: 1100px; margin:0 auto; padding: 0 1rem 3rem; }
+
+  .section-title {
+    font-size: 1rem; font-weight: 600;
+    margin: 1.5rem 0 .75rem; color: var(--text);
+    padding-bottom: .4rem; border-bottom: 2px solid var(--border);
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    padding: 1.25rem 1.25rem 1rem;
+    cursor: pointer;
+    transition: box-shadow .2s, transform .15s, border-color .2s;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-2px); border-color: var(--accent); }
+
+  .card .icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; margin-bottom:.75rem; }
+  .card .ctitle { font-weight:600; font-size:.95rem; }
+  .card .cid { font-size:.72rem; color:var(--text2); background:var(--bg); padding:.15rem .5rem; border-radius:999px; align-self:flex-start; margin-top:.35rem; }
+  .card .cdesc { color:var(--text2); font-size:.82rem; margin-top:.4rem; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .card .cmeta { font-size:.72rem; color:var(--text2); margin-top:.75rem; padding-top:.6rem; border-top:1px solid var(--border); }
+
+  .hidden { display:none !important; }
+
+  /* ===== PASSPORT PAGE ===== */
+  .page { display:none; max-width:900px; margin:0 auto; padding:1rem 1rem 3rem; }
+  .page.active { display:block; }
+
+  .page-bar {
+    display:flex; align-items:center; gap:.6rem;
+    padding:.6rem 1rem; background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius);
+    margin-bottom:1.25rem; flex-wrap:wrap;
+  }
+  .page-bar .back {
+    color:var(--accent); text-decoration:none; font-size:.85rem; font-weight:500; cursor:pointer;
+  }
+  .page-bar .back:hover { text-decoration:underline; }
+  .page-bar .sep { color:var(--border); }
+  .page-bar .pbc {
+    font-size:.72rem; color:var(--text2); background:var(--bg);
+    padding:.15rem .5rem; border-radius:999px;
+  }
+
+  .page h2 { font-size:1.3rem; font-weight:700; margin-bottom:.25rem; }
+  .page .p-subtitle { color:var(--text2); font-size:.85rem; margin-bottom:1rem; }
+
+  .ptable { width:100%; border-collapse:collapse; font-size:.85rem; background:var(--surface); border-radius:var(--radius); overflow:hidden; }
+  .ptable td { padding:.5rem .6rem .5rem 0; vertical-align:top; border-bottom:1px solid #f0f2f5; }
+  .ptable tr:last-child td { border-bottom:none; }
+  .ptable .pl { color:var(--text2); font-weight:500; white-space:nowrap; width:200px; padding-right:.75rem; padding-left:.75rem; }
+
+  .tag { display:inline-block; font-size:.72rem; font-weight:600; padding:.12rem .45rem; border-radius:4px; margin:.1rem .15rem; white-space:nowrap; }
+  .tag-need   { background:var(--accent-light); color:var(--accent); }
+  .tag-cp     { background:var(--green-light); color:var(--green); }
+  .tag-ap     { background:var(--purple-light); color:var(--purple); }
+  .tag-bbb    { background:var(--amber-light); color:var(--amber); }
+  .tag-ao     { background:var(--cyan-light); color:var(--cyan); }
+  .tag-grd    { background:var(--pink-light); color:var(--pink); }
+
+  .roles { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:.6rem; }
+  .role { padding:.75rem; background:var(--bg); border-radius:8px; }
+  .role .rt { font-weight:600; font-size:.85rem; }
+  .role .rd { color:var(--text2); font-size:.8rem; margin-top:.2rem; }
+
+  .footer { text-align:center; color:var(--text2); font-size:.75rem; padding:1.5rem 0; border-top:1px solid var(--border); margin-top:1rem; }
+</style>
+</head>
+<body>
+
+<div id="cardsView">
+  <div class="header">
+    <h1>🧾 Паспорта объектов управления</h1>
+    <p>Стандарт автономного процесса v1.1 · BASIC_RECORD · AI-агент аналитики корпоративных данных</p>
+    <span class="badge">26 паспортов</span>
+  </div>
+  <div class="container">
+
+    <!-- NEED -->
+    <div class="section-title">Потребность и клиентские пути</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('need')">
+        <div class="icon" style="background:var(--accent-light);color:var(--accent);">П</div>
+        <div class="ctitle">Потребность клиента</div>
+        <span class="cid">NEED-FIZARUM-001</span>
+        <div class="cdesc">Аналитика корпоративных данных по естественно-языковому запросу</div>
+        <div class="cmeta">1 потребность · Средняя значимость · CONFIRM</div>
+      </div>
+      <div class="card" onclick="showPage('cp1')">
+        <div class="icon" style="background:var(--green-light);color:var(--green);">КП</div>
+        <div class="ctitle">Клиентский путь — Вопрос-ответ</div>
+        <span class="cid">CP-FIZARUM-001</span>
+        <div class="cdesc">Аналитический ответ на NL-запрос по корпоративным данным</div>
+        <div class="cmeta">RESEARCH → ANSWER · CONFIRM</div>
+      </div>
+      <div class="card" onclick="showPage('cp2')">
+        <div class="icon" style="background:var(--green-light);color:var(--green);">КП</div>
+        <div class="ctitle">Клиентский путь — RCA</div>
+        <span class="cid">CP-FIZARUM-002</span>
+        <div class="cdesc">Root Cause Analysis: дерево гипотез и верификация</div>
+        <div class="cmeta">BUILD → INVESTIGATE → SYNTHESIZE · CONFIRM</div>
+      </div>
+    </div>
+
+    <!-- AP -->
+    <div class="section-title">Автономные процессы</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('ap1')">
+        <div class="icon" style="background:var(--purple-light);color:var(--purple);">АП</div>
+        <div class="ctitle">Автономный процесс — Вопрос-ответ</div>
+        <span class="cid">AP-CP-FIZARUM-001</span>
+        <div class="cdesc">LangGraph: планирование → semantic search → SQL → синтез</div>
+        <div class="cmeta">7 этапов · 4 BBB</div>
+      </div>
+      <div class="card" onclick="showPage('ap2')">
+        <div class="icon" style="background:var(--purple-light);color:var(--purple);">АП</div>
+        <div class="ctitle">Автономный процесс — RCA</div>
+        <span class="cid">AP-CP-FIZARUM-002</span>
+        <div class="cdesc">Трёхстадийный конвейер: BUILD → INVESTIGATE → SYNTHESIZE</div>
+        <div class="cmeta">Phase A + Phase B · 4 BBB</div>
+      </div>
+    </div>
+
+    <!-- BBB -->
+    <div class="section-title">Business Building Blocks</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('bbb1')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B1</div>
+        <div class="ctitle">Поиск схемы данных</div>
+        <span class="cid">BBB-FIZARUM-001</span>
+        <div class="cdesc">Семантический поиск таблиц через OpenSearch/LanceDB</div>
+        <div class="cmeta">2 AO · 2 guardrails</div>
+      </div>
+      <div class="card" onclick="showPage('bbb2')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B2</div>
+        <div class="ctitle">Исполнение SQL-запроса</div>
+        <span class="cid">BBB-FIZARUM-002</span>
+        <div class="cdesc">SELECT к Greenplum/PostgreSQL/SQLite</div>
+        <div class="cmeta">2 AO · 3 guardrails</div>
+      </div>
+      <div class="card" onclick="showPage('bbb3')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B3</div>
+        <div class="ctitle">Парсинг загруженных файлов</div>
+        <span class="cid">BBB-FIZARUM-003</span>
+        <div class="cdesc">PDF, DOCX, XLSX, CSV, TXT, MD, PPTX</div>
+        <div class="cmeta">1 AO</div>
+      </div>
+      <div class="card" onclick="showPage('bbb4')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B4</div>
+        <div class="ctitle">Построение дерева гипотез</div>
+        <span class="cid">BBB-FIZARUM-004</span>
+        <div class="cdesc">MECE-дерево корневых причин (LLM, без данных)</div>
+        <div class="cmeta">1 AO · RCA</div>
+      </div>
+      <div class="card" onclick="showPage('bbb5')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B5</div>
+        <div class="ctitle">Верификация гипотезы</div>
+        <span class="cid">BBB-FIZARUM-005</span>
+        <div class="cdesc">Manager + Verifier sub-agents. Параллельная проверка.</div>
+        <div class="cmeta">1 AO · RCA</div>
+      </div>
+      <div class="card" onclick="showPage('bbb6')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B6</div>
+        <div class="ctitle">Синтез ответа / заключения</div>
+        <span class="cid">BBB-FIZARUM-006</span>
+        <div class="cdesc">Финальный ANSWER или Executive Summary</div>
+        <div class="cmeta">1 AO</div>
+      </div>
+      <div class="card" onclick="showPage('bbb7')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B7</div>
+        <div class="ctitle">Сохранение в память</div>
+        <span class="cid">BBB-FIZARUM-007</span>
+        <div class="cdesc">Запись observation в S3</div>
+        <div class="cmeta">1 AO</div>
+      </div>
+      <div class="card" onclick="showPage('bbb8')">
+        <div class="icon" style="background:var(--amber-light);color:var(--amber);">B8</div>
+        <div class="ctitle">Управление историей</div>
+        <span class="cid">BBB-FIZARUM-008</span>
+        <div class="cdesc">CRUD диалогов (Postgres/SQLite)</div>
+        <div class="cmeta">1 AO</div>
+      </div>
+    </div>
+
+    <!-- AO -->
+    <div class="section-title">Атомарные операции</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('ao1')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A1</div><div class="ctitle">Векторизация запроса</div><span class="cid">AO-FIZARUM-001</span><div class="cdesc">Текст → embedding-вектор</div><div class="cmeta">BBB-001</div></div>
+      <div class="card" onclick="showPage('ao2')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A2</div><div class="ctitle">Поиск k ближайших схем</div><span class="cid">AO-FIZARUM-002</span><div class="cdesc">k-NN поиск по векторной БД</div><div class="cmeta">BBB-001</div></div>
+      <div class="card" onclick="showPage('ao3')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A3</div><div class="ctitle">Подключение к БД</div><span class="cid">AO-FIZARUM-003</span><div class="cdesc">Пул асинхронных соединений</div><div class="cmeta">BBB-002</div></div>
+      <div class="card" onclick="showPage('ao4')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A4</div><div class="ctitle">Исполнение SQL</div><span class="cid">AO-FIZARUM-004</span><div class="cdesc">SELECT + guardrails</div><div class="cmeta">BBB-002</div></div>
+      <div class="card" onclick="showPage('ao5')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A5</div><div class="ctitle">Извлечение текста из файла</div><span class="cid">AO-FIZARUM-005</span><div class="cdesc">Парсинг по MIME</div><div class="cmeta">BBB-003</div></div>
+      <div class="card" onclick="showPage('ao6')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A6</div><div class="ctitle">Вызов LLM — Tree Builder</div><span class="cid">AO-FIZARUM-006</span><div class="cdesc">MECE-дерево гипотез</div><div class="cmeta">BBB-004</div></div>
+      <div class="card" onclick="showPage('ao7')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A7</div><div class="ctitle">Вызов LLM — Manager/Verifier</div><span class="cid">AO-FIZARUM-007</span><div class="cdesc">Верификация гипотезы</div><div class="cmeta">BBB-005</div></div>
+      <div class="card" onclick="showPage('ao8')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A8</div><div class="ctitle">Вызов LLM — Synthesizer</div><span class="cid">AO-FIZARUM-008</span><div class="cdesc">Финальный ответ/заключение</div><div class="cmeta">BBB-006</div></div>
+      <div class="card" onclick="showPage('ao9')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A9</div><div class="ctitle">Сохранение observation в S3</div><span class="cid">AO-FIZARUM-009</span><div class="cdesc">Запись в память</div><div class="cmeta">BBB-007</div></div>
+      <div class="card" onclick="showPage('ao10')"><div class="icon" style="background:var(--cyan-light);color:var(--cyan);">A10</div><div class="ctitle">CRUD история диалогов</div><span class="cid">AO-FIZARUM-010</span><div class="cdesc">Чтение/запись Conversation + Message</div><div class="cmeta">BBB-008</div></div>
+    </div>
+
+    <!-- GRD -->
+    <div class="section-title">Guardrails</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('grd1')"><div class="icon" style="background:var(--pink-light);color:var(--pink);">G1</div><div class="ctitle">Только SELECT</div><span class="cid">GRD-FIZARUM-001</span><div class="cdesc">Модификация данных запрещена</div><div class="cmeta">🔴 blocker · AP, BBB-002</div></div>
+      <div class="card" onclick="showPage('grd2')"><div class="icon" style="background:var(--pink-light);color:var(--pink);">G2</div><div class="ctitle">Таймаут SQL</div><span class="cid">GRD-FIZARUM-002</span><div class="cdesc">Лимит 60 с на запрос</div><div class="cmeta">🟠 error · BBB-002</div></div>
+      <div class="card" onclick="showPage('grd3')"><div class="icon" style="background:var(--pink-light);color:var(--pink);">G3</div><div class="ctitle">MAX_VERIFY_ROUNDS</div><span class="cid">GRD-FIZARUM-003</span><div class="cdesc">Лимит итераций верификации</div><div class="cmeta">🟡 warning · AP-CP-002</div></div>
+      <div class="card" onclick="showPage('grd4')"><div class="icon" style="background:var(--pink-light);color:var(--pink);">G4</div><div class="ctitle">Глобальный таймаут</div><span class="cid">GRD-FIZARUM-004</span><div class="cdesc">10 мин на процесс</div><div class="cmeta">🟠 error · AP</div></div>
+      <div class="card" onclick="showPage('grd5')"><div class="icon" style="background:var(--pink-light);color:var(--pink);">G5</div><div class="ctitle">Лимит строк</div><span class="cid">GRD-FIZARUM-005</span><div class="cdesc">Ограничение объёма данных</div><div class="cmeta">🟡 warning · BBB-002</div></div>
+    </div>
+
+    <!-- ROLES -->
+    <div class="section-title">Роли и владельцы</div>
+    <div class="grid">
+      <div class="card" onclick="showPage('roles')">
+        <div class="icon" style="background:#f1f5f9;color:#475569;">Р</div>
+        <div class="ctitle">Роли и владельцы</div>
+        <span class="cid">3 роли</span>
+        <div class="cdesc">Владелец продукта, технический владелец, Gate</div>
+        <div class="cmeta">Ответственность и границы</div>
+      </div>
+    </div>
+
+    <div class="footer">Стандарт автономного процесса v1.1 · BASIC_RECORD · 27 июля 2026</div>
+  </div>
+</div>
+
+<!-- ============================================== -->
+<!-- PASSPORT PAGES (inline data) -->
+<!-- ============================================== -->
+
+<script>
+const passportData = {
+
+need: { id:'NEED-FIZARUM-001', label:'Потребность клиента', rows:[
+  ['ID', '<strong>NEED-FIZARUM-001</strong>'],
+  ['Название', 'Аналитика корпоративных данных по NL-запросу'],
+  ['Тип потребности', 'Информационно-аналитическая'],
+  ['Статус', 'Публикационная редакция'],
+  ['Бизнес-намерение', 'Сотрудник Сбера получает аналитический ответ по данным без посредников. Система решает разрыв: есть вопрос → нет ответа.'],
+  ['Клиент', 'HR-аналитик, HR BP, руководитель подразделения'],
+  ['Канал', 'Web-чат (Next.js), REST API'],
+  ['Признаки распознавания', 'Текстовый запрос с вопросом о данных (численность, оргструктура, KPI)'],
+  ['Допустимые КП', '<span class="tag tag-cp">CP-FIZARUM-001</span> Вопрос-ответ &nbsp; <span class="tag tag-cp">CP-FIZARUM-002</span> RCA'],
+  ['Разрешено', 'Чтение данных (SELECT), semantic search, синтез, RCA'],
+  ['Запрещено', 'Модификация данных, исполнение произвольного кода'],
+  ['Режим', 'CONFIRM'],
+  ['Значимость', 'Средняя — результат влияет на управленческие решения'],
+  ['Метрики', 'Успех &gt; 90% · Время &lt; 60 с · Полнота доменов']
+]},
+cp1: { id:'CP-FIZARUM-001', label:'Клиентский путь — Вопрос-ответ', rows:[
+  ['ID', '<strong>CP-FIZARUM-001</strong>'],
+  ['Потребность', '<span class="tag tag-need">NEED-FIZARUM-001</span>'],
+  ['Бизнес-намерение', 'Аналитический ответ на NL-вопрос по данным. Решение под запрос (segment of one).'],
+  ['Состояние «до»', 'Вопрос есть, ответа нет'],
+  ['Целевое состояние', 'Проверяемый аналитический ответ (stateList: ANSWER)'],
+  ['Критерий результата', 'computeStatus = DONE · stateList содержит ANSWER'],
+  ['Статусы завершения', '<strong>Достигнут:</strong> DONE+ANSWER · <strong>Обработан:</strong> FAIL/TERMINATED'],
+  ['Моменты взаимодействия', 'Отправка → RESEARCH → ANSWER → terminate → FAIL']
+]},
+cp2: { id:'CP-FIZARUM-002', label:'Клиентский путь — RCA', rows:[
+  ['ID', '<strong>CP-FIZARUM-002</strong>'],
+  ['Потребность', '<span class="tag tag-need">NEED-FIZARUM-001</span>'],
+  ['Бизнес-намерение', 'Анализ корневых причин через MECE-дерево гипотез'],
+  ['Состояние «до»', 'Проблема есть, причин нет'],
+  ['Целевое состояние', 'RCA-заключение с верифицированными гипотезами'],
+  ['Критерий результата', 'stage = SYNTHESIZE · ExecutiveSummary + дерево с verdicts'],
+  ['Этапы', 'Phase A: Front-agent (brief) → подтверждение · Phase B: BUILD → INVESTIGATE → SYNTHESIZE'],
+  ['Агенты', 'Front-agent · Tree Builder · Manager · Verifier (N) · Synthesizer'],
+]},
+ap1: { id:'AP-CP-FIZARUM-001', label:'Автономный процесс — Вопрос-ответ', rows:[
+  ['ID', '<strong>AP-CP-FIZARUM-001</strong>'],
+  ['КП', '<span class="tag tag-cp">CP-FIZARUM-001</span>'],
+  ['Режим', 'CONFIRM'],
+  ['Логика', 'LangGraph: планирование → semantic search → SQL → синтез'],
+  ['Этапы', '1.Распознавание · 2.Планирование · 3.Поиск схем <span class="tag tag-bbb">BBB-001</span> · 4.SQL <span class="tag tag-bbb">BBB-002</span> · 5.Файлы <span class="tag tag-bbb">BBB-003</span> · 6.Синтез <span class="tag tag-bbb">BBB-006</span> · 7.Память <span class="tag tag-bbb">BBB-007</span>'],
+  ['Отклонения', 'Нет схем → FAIL · Ошибка SQL → retry 1x · Таймаут SQL → FAIL · Terminate → TERMINATED'],
+  ['Guardrails', '<span class="tag tag-grd">GRD-001</span> <span class="tag tag-grd">GRD-002</span> <span class="tag tag-grd">GRD-004</span> <span class="tag tag-grd">GRD-005</span>'],
+  ['Метрики', 'Время &lt; 60 с · Успех &gt; 90% · FAIL &lt; 5%']
+]},
+ap2: { id:'AP-CP-FIZARUM-002', label:'Автономный процесс — RCA', rows:[
+  ['ID', '<strong>AP-CP-FIZARUM-002</strong>'],
+  ['КП', '<span class="tag tag-cp">CP-FIZARUM-002</span>'],
+  ['Режим', 'CONFIRM'],
+  ['Логика', 'Трёхстадийный конвейер: BUILD → INVESTIGATE → SYNTHESIZE'],
+  ['Phase A', 'Front-agent → brief <span class="tag tag-bbb">BBB-006</span> → подтверждение (CONFIRM)'],
+  ['Phase B', 'B1: BUILD <span class="tag tag-bbb">BBB-004</span> · B2: INVESTIGATE <span class="tag tag-bbb">BBB-005</span> · B3: SYNTHESIZE <span class="tag tag-bbb">BBB-006</span>'],
+  ['INVESTIGATE', 'Manager → N Verifier (parallel) · Verdict: confirmed/rejected/inconclusive'],
+  ['Отклонения', 'Ошибка BUILD → FAIL · Ошибка Verifier → retry 2x → inconclusive · Terminate → TERMINATED'],
+  ['Guardrails', '<span class="tag tag-grd">GRD-001</span> <span class="tag tag-grd">GRD-003</span> <span class="tag tag-grd">GRD-004</span>'],
+  ['Метрики', 'Время &lt; 10 мин · Confirmed &gt; 60% · Успех &gt; 85%']
+]},
+
+bbb1: { id:'BBB-FIZARUM-001', label:'Поиск схемы данных', rows:[
+  ['ID', '<strong>BBB-FIZARUM-001</strong>'],
+  ['Категория', 'Semantic search / векторный поиск'],
+  ['Описание', 'Семантический поиск таблиц и колонок корпоративной БД'],
+  ['Вход', 'Текст запроса (str)'],
+  ['Выход', 'Список релевантных таблиц и колонок'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-001</span> Векторизация · <span class="tag tag-ao">AO-002</span> k-NN поиск'],
+  ['Зависит от', 'BBB-008 (история), LLM-модель'],
+  ['Конфиг', 'Хранилище: OpenSearch (prod) / LanceDB (dev) · Топ-k: 5–20']
+]},
+bbb2: { id:'BBB-FIZARUM-002', label:'Исполнение SQL-запроса', rows:[
+  ['ID', '<strong>BBB-FIZARUM-002</strong>'],
+  ['Категория', 'Выполнение запроса к БД'],
+  ['Описание', 'SELECT к Greenplum/PostgreSQL/SQLite'],
+  ['Вход', 'Схема таблиц + вопрос'],
+  ['Выход', 'Результат SELECT (list[dict])'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-003</span> Подключение · <span class="tag tag-ao">AO-004</span> Исполнение SQL'],
+  ['Guardrails', '<span class="tag tag-grd">GRD-001</span> Только SELECT · <span class="tag tag-grd">GRD-002</span> 60 с · <span class="tag tag-grd">GRD-005</span> Лимит строк']
+]},
+bbb3: { id:'BBB-FIZARUM-003', label:'Парсинг загруженных файлов', rows:[
+  ['ID', '<strong>BBB-FIZARUM-003</strong>'],
+  ['Категория', 'Извлечение данных из файлов'],
+  ['Описание', 'Парсинг PDF, DOCX, XLSX, CSV, TXT, MD, PPTX'],
+  ['Вход', 'File path + MIME type'],
+  ['Выход', 'Извлечённый текст (str)'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-005</span> Извлечение текста']
+]},
+bbb4: { id:'BBB-FIZARUM-004', label:'Построение дерева гипотез', rows:[
+  ['ID', '<strong>BBB-FIZARUM-004</strong>'],
+  ['Категория', 'Генерация гипотез (RCA)'],
+  ['Описание', 'MECE-дерево корневых причин (LLM, без данных)'],
+  ['Вход', 'Problem statement + data context'],
+  ['Выход', 'JSON-дерево гипотез'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-006</span> LLM Tree Builder'],
+  ['Принцип', 'MECE · нет SQL на этом этапе']
+]},
+bbb5: { id:'BBB-FIZARUM-005', label:'Верификация гипотезы', rows:[
+  ['ID', '<strong>BBB-FIZARUM-005</strong>'],
+  ['Категория', 'Проверка гипотезы (RCA)'],
+  ['Описание', 'Параллельная проверка гипотез Manager + Verifier'],
+  ['Вход', 'Гипотеза (JSON) + данные'],
+  ['Выход', 'Verdict + evidence'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-007</span> LLM Manager/Verifier'],
+  ['Guardrails', '<span class="tag tag-grd">GRD-003</span> MAX_VERIFY_ROUNDS']
+]},
+bbb6: { id:'BBB-FIZARUM-006', label:'Синтез ответа / заключения', rows:[
+  ['ID', '<strong>BBB-FIZARUM-006</strong>'],
+  ['Категория', 'Формирование финального вывода'],
+  ['Описание', 'ANSWER (main) или Executive Summary (RCA)'],
+  ['Вход', 'Результаты SQL и/или гипотезы'],
+  ['Выход', 'Текст на естественном языке'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-008</span> LLM Synthesizer']
+]},
+bbb7: { id:'BBB-FIZARUM-007', label:'Сохранение в память', rows:[
+  ['ID', '<strong>BBB-FIZARUM-007</strong>'],
+  ['Категория', 'Долговременная память'],
+  ['Описание', 'Запись observation в S3'],
+  ['Вход', 'observation (str)'],
+  ['Выход', 'Факт сохранения (bool)'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-009</span> S3 save']
+]},
+bbb8: { id:'BBB-FIZARUM-008', label:'Управление историей', rows:[
+  ['ID', '<strong>BBB-FIZARUM-008</strong>'],
+  ['Категория', 'Хранение диалогов'],
+  ['Описание', 'CRUD Conversation + Message через SQLAlchemy'],
+  ['Вход', 'Conversation ID + message body'],
+  ['Выход', 'История сообщений'],
+  ['Атомарные операции', '<span class="tag tag-ao">AO-010</span> CRUD история'],
+  ['Конфиг', 'Prod: PostgreSQL · Dev: SQLite']
+]},
+
+ao1: { id:'AO-FIZARUM-001', label:'Векторизация запроса', rows:[
+  ['ID', '<strong>AO-FIZARUM-001</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-001</span>'],
+  ['Описание', 'Преобразование текста в embedding-вектор'],
+  ['Вход', 'str (текст запроса)'],
+  ['Выход', 'list[float] (embedding)'],
+  ['Таймаут', '10 с']
+]},
+ao2: { id:'AO-FIZARUM-002', label:'Поиск k ближайших схем', rows:[
+  ['ID', '<strong>AO-FIZARUM-002</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-001</span>'],
+  ['Описание', 'k-NN поиск релевантных таблиц'],
+  ['Вход', 'Embedding-вектор'],
+  ['Выход', 'Top-k таблиц: имя, колонки, score'],
+  ['k', '5–20 (runtime)']
+]},
+ao3: { id:'AO-FIZARUM-003', label:'Подключение к БД', rows:[
+  ['ID', '<strong>AO-FIZARUM-003</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-002</span>'],
+  ['Описание', 'Пул асинхронных соединений'],
+  ['Вход', 'DSN / connection params'],
+  ['Выход', 'async connection pool'],
+  ['ORM', 'SQLAlchemy async']
+]},
+ao4: { id:'AO-FIZARUM-004', label:'Исполнение SQL', rows:[
+  ['ID', '<strong>AO-FIZARUM-004</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-002</span>'],
+  ['Описание', 'SELECT и возврат результата'],
+  ['Вход', 'SQL-строка (SELECT)'],
+  ['Выход', 'list[dict]'],
+  ['Guardrails', '<span class="tag tag-grd">GRD-001</span> · <span class="tag tag-grd">GRD-002</span> · <span class="tag tag-grd">GRD-005</span>']
+]},
+ao5: { id:'AO-FIZARUM-005', label:'Извлечение текста из файла', rows:[
+  ['ID', '<strong>AO-FIZARUM-005</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-003</span>'],
+  ['Описание', 'Парсинг по MIME типу'],
+  ['Вход', 'path + MIME'],
+  ['Выход', 'str (текст)'],
+  ['Форматы', 'PDF, DOCX, XLSX, CSV, PPTX, TXT, MD']
+]},
+ao6: { id:'AO-FIZARUM-006', label:'Вызов LLM — Tree Builder', rows:[
+  ['ID', '<strong>AO-FIZARUM-006</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-004</span>'],
+  ['Описание', 'Генерация MECE-дерева гипотез'],
+  ['Вход', 'Problem statement'],
+  ['Выход', 'JSON-дерево'],
+  ['Модель', 'build-stage · без инструментов']
+]},
+ao7: { id:'AO-FIZARUM-007', label:'Вызов LLM — Manager/Verifier', rows:[
+  ['ID', '<strong>AO-FIZARUM-007</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-005</span>'],
+  ['Описание', 'Верификация гипотезы'],
+  ['Вход', 'Гипотеза + данные'],
+  ['Выход', 'Verdict + evidence'],
+  ['Модели', 'Manager: enrich (thinking) · Verifier: verify (tool-loop)']
+]},
+ao8: { id:'AO-FIZARUM-008', label:'Вызов LLM — Synthesizer', rows:[
+  ['ID', '<strong>AO-FIZARUM-008</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-006</span>'],
+  ['Описание', 'Финальный текст из результатов'],
+  ['Вход', 'SQL результаты / гипотезы'],
+  ['Выход', 'ANSWER / Executive Summary'],
+  ['Модель', 'synthesize-stage']
+]},
+ao9: { id:'AO-FIZARUM-009', label:'Сохранение observation в S3', rows:[
+  ['ID', '<strong>AO-FIZARUM-009</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-007</span>'],
+  ['Описание', 'Запись в долговременную память'],
+  ['Вход', 'observation (str)'],
+  ['Выход', 'bool'],
+  ['Storage', 'S3-compatible · ключ: session_id+ts']
+]},
+ao10: { id:'AO-FIZARUM-010', label:'CRUD история диалогов', rows:[
+  ['ID', '<strong>AO-FIZARUM-010</strong>'],
+  ['BBB', '<span class="tag tag-bbb">BBB-008</span>'],
+  ['Описание', 'Чтение/запись Conversation и Message'],
+  ['Вход', 'Conversation ID'],
+  ['Выход', 'list[Message]'],
+  ['DB', 'PostgreSQL (prod) / SQLite (dev) · ORM: SQLAlchemy']
+]},
+
+grd1: { id:'GRD-FIZARUM-001', label:'Только SELECT', rows:[
+  ['ID', '<strong>GRD-FIZARUM-001</strong>'],
+  ['Тип', 'Безопасность / Целостность данных'],
+  ['Описание', 'Запрещены DML/DDL. Допустимы только SELECT.'],
+  ['Применяется к', 'AP-CP-001, AP-CP-002, BBB-002, AO-004'],
+  ['Механизм', 'Проверка SQL перед исполнением'],
+  ['Действие', 'Запрос отклоняется, FAIL с пояснением'],
+  ['Severity', '<strong>🔴 blocker</strong>']
+]},
+grd2: { id:'GRD-FIZARUM-002', label:'Таймаут исполнения SQL', rows:[
+  ['ID', '<strong>GRD-FIZARUM-002</strong>'],
+  ['Тип', 'Производительность'],
+  ['Описание', 'SQL-запрос должен завершиться за 60 с'],
+  ['Применяется к', 'BBB-002, AO-004'],
+  ['Механизм', 'asyncio timeout на execute'],
+  ['Действие', 'Прерывание, FAIL'],
+  ['Значение', '60 с'],
+  ['Severity', '<strong>🟠 error</strong>']
+]},
+grd3: { id:'GRD-FIZARUM-003', label:'MAX_VERIFY_ROUNDS', rows:[
+  ['ID', '<strong>GRD-FIZARUM-003</strong>'],
+  ['Тип', 'Производительность / Предсказуемость'],
+  ['Описание', 'Макс. раундов верификации гипотезы в RCA'],
+  ['Применяется к', 'AP-CP-002, BBB-005'],
+  ['Механизм', 'Счётчик в RCA config'],
+  ['Действие', 'Завершение INVESTIGATE, переход к SYNTHESIZE'],
+  ['Значение', 'По умолчанию 3'],
+  ['Severity', '<strong>🟡 warning</strong>']
+]},
+grd4: { id:'GRD-FIZARUM-004', label:'Глобальный таймаут процесса', rows:[
+  ['ID', '<strong>GRD-FIZARUM-004</strong>'],
+  ['Тип', 'Производительность / Ресурсы'],
+  ['Описание', 'Процесс должен завершиться за 10 мин'],
+  ['Применяется к', 'AP-CP-001, AP-CP-002'],
+  ['Механизм', 'asyncio.wait_for на корутину'],
+  ['Действие', 'Принудительный FAIL, cleanup'],
+  ['Значение', '10 мин (600 с)'],
+  ['Severity', '<strong>🟠 error</strong>']
+]},
+grd5: { id:'GRD-FIZARUM-005', label:'Лимит строк данных', rows:[
+  ['ID', '<strong>GRD-FIZARUM-005</strong>'],
+  ['Тип', 'Производительность / Объём'],
+  ['Описание', 'SQL не должен возвращать &gt; N строк'],
+  ['Применяется к', 'BBB-002, AO-004'],
+  ['Механизм', 'Принудительный LIMIT в SQL'],
+  ['Действие', 'Усечение результата'],
+  ['Значение', '10 000 (configurable)'],
+  ['Severity', '<strong>🟡 warning</strong>']
+]},
+
+roles: { id:'', label:'Роли и владельцы', isRoles: true }
+};
+
+function showPage(key) {
+  const d = passportData[key];
+  if (!d) return;
+
+  document.getElementById('cardsView').classList.add('hidden');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  let html = '<div class="page active" id="page_'+key+'">';
+  html += '<div class="page-bar"><a class="back" onclick="showCards()">← Назад к картотеке</a><span class="sep">|</span><span class="pbc">'+d.id+'</span></div>';
+  html += '<h2>'+d.label+'</h2>';
+  if (d.id) html += '<div class="p-subtitle">ID: '+d.id+'</div>';
+
+  if (d.isRoles) {
+    html += '<div class="roles" style="margin-top:1rem">';
+    html += '<div class="role"><div class="rt">👤 Владелец продукта</div><div class="rd">Определяет потребность, клиентский путь, границы автономности</div></div>';
+    html += '<div class="role"><div class="rt">⚙️ Технический владелец</div><div class="rd">Реализация AP, BBB, атомарных операций, guardrails</div></div>';
+    html += '<div class="role"><div class="rt">🔍 Gate / Контролёр качества</div><div class="rd">Проверка соответствия стандарту перед запуском</div></div>';
+    html += '</div>';
+  } else {
+    html += '<table class="ptable">';
+    d.rows.forEach(r => {
+      html += '<tr><td class="pl">'+r[0]+'</td><td>'+r[1]+'</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  html += '</div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  document.getElementById('page_'+key).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function showCards() {
+  document.querySelectorAll('.page').forEach(p => p.remove());
+  document.getElementById('cardsView').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

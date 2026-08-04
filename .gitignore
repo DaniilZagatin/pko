@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+pko-out/
+*.bak
+tests/fixtures/mini_repo/
+.pko-cache/

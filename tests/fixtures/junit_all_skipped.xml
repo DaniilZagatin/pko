@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Отчёт, в котором не выполнился ни один тест: все скипнуты guard'ом.
+     Формально «падений нет» — но и ни одна проверка не подтверждена. -->
+<testsuites>
+  <testsuite name="mini-agent" tests="4" failures="0" errors="0" skipped="4" time="0.012">
+    <testcase classname="tests.test_sql_guard" name="test_forbidden_update_is_rejected" time="0.00">
+      <skipped message="требует доступного LLM" type="pytest.skip"/>
+    </testcase>
+    <testcase classname="tests.test_sql_guard" name="test_timeout_limit_applied" time="0.00">
+      <skipped message="требует доступного LLM" type="pytest.skip"/>
+    </testcase>
+    <testcase classname="tests.test_api" name="test_start_task_returns_id" time="0.00">
+      <skipped message="нет Postgres" type="pytest.skip"/>
+    </testcase>
+    <testcase classname="tests.test_api" name="test_unknown_task_returns_error" time="0.00">
+      <skipped message="нет Postgres" type="pytest.skip"/>
+    </testcase>
+  </testsuite>
+</testsuites>

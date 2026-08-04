@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Таксономия объектов управления — AI-агент аналитики данных</title>
+  <style>
+    :root {
+      --bg: #f8f9fb;
+      --surface: #ffffff;
+      --border: #e2e5ea;
+      --text: #1e2229;
+      --text-secondary: #5e6879;
+      --accent: #2563eb;
+      --accent-light: #eff4ff;
+      --green: #059669;
+      --green-light: #ecfdf5;
+      --amber: #d97706;
+      --amber-light: #fffbeb;
+      --red: #dc2626;
+      --red-light: #fef2f2;
+      --purple: #7c3aed;
+      --purple-light: #f5f3ff;
+      --cyan: #0891b2;
+      --cyan-light: #ecfeff;
+      --pink: #db2777;
+      --pink-light: #fdf2f8;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 2rem 0 2.5rem;
+    }
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .header .subtitle {
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.75rem;
+      border-radius: 999px;
+      margin-top: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    /* Meta bar */
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      padding: 1rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      font-size: 0.85rem;
+    }
+    .meta-bar .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .meta-bar .meta-label {
+      color: var(--text-secondary);
+    }
+    .meta-bar .meta-value {
+      font-weight: 600;
+    }
+
+    /* Section */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-header:hover { background: #fafbfc; }
+    .section-header .icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .section-header h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      flex: 1;
+    }
+    .section-header .count {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      background: var(--bg);
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+    }
+    .section-header .toggle {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .section-body {
+      padding: 1.5rem;
+    }
+
+    /* Need block */
+    .need-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+    .need-grid .label {
+      color: var(--text-secondary);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .need-grid .value {
+      font-weight: 500;
+    }
+
+    /* Tags */
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      margin-right: 0.25rem;
+    }
+    .tag-need { background: var(--accent-light); color: var(--accent); }
+    .tag-cp { background: var(--green-light); color: var(--green); }
+    .tag-ap { background: var(--purple-light); color: var(--purple); }
+    .tag-bbb { background: var(--amber-light); color: var(--amber); }
+    .tag-ao { background: var(--cyan-light); color: var(--cyan); }
+    .tag-grd { background: var(--pink-light); color: var(--pink); }
+
+    /* Table */
+    .obj-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .obj-table th {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      border-bottom: 2px solid var(--border);
+    }
+    .obj-table td {
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .obj-table tr:last-child td { border-bottom: none; }
+    .obj-table .id-cell { font-weight: 600; white-space: nowrap; font-size: 0.82rem; }
+    .obj-table .desc-cell { color: var(--text-secondary); }
+
+    /* BBB list */
+    .bbb-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .bbb-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .bbb-item .bbb-id {
+      font-weight: 700;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      color: var(--amber);
+    }
+    .bbb-item .bbb-info { flex: 1; }
+    .bbb-item .bbb-name { font-weight: 600; font-size: 0.9rem; }
+    .bbb-item .bbb-desc { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.15rem; }
+
+    /* AO list */
+    .ao-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .ao-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    .ao-item .ao-id { font-weight: 700; font-size: 0.82rem; white-space: nowrap; color: var(--cyan); }
+    .ao-item .ao-bbb-ref {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      background: var(--surface);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    /* Guardrails */
+    .grd-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .grd-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border-radius: 6px;
+      font-size: 0.88rem;
+    }
+    .grd-item .grd-id { font-weight: 700; font-size: 0.82rem; white-space: nowrap; color: var(--pink); }
+    .grd-item .grd-applies { font-size: 0.75rem; color: var(--text-secondary); margin-left: auto; white-space: nowrap; }
+
+    /* Roles */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+    .role-card {
+      padding: 1rem;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .role-card .role-title { font-weight: 600; font-size: 0.9rem; }
+    .role-card .role-desc { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.3rem; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      padding: 2rem 0 1rem;
+      border-top: 1px solid var(--border);
+      margin-top: 0.5rem;
+    }
+
+    /* Responsive table */
+    @media (max-width: 768px) {
+      .obj-table th, .obj-table td { padding: 0.5rem; }
+      .obj-table .desc-cell { display: none; }
+      .meta-bar { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Таксономия объектов управления</h1>
+    <div class="subtitle">AI-агент аналитики корпоративных данных · Сбер</div>
+    <div class="badge">BASIC profile · Стандарт автономного процесса v1.1</div>
+  </div>
+
+  <!-- Meta -->
+  <div class="meta-bar">
+    <div class="meta-item"><span class="meta-label">Проект:</span><span class="meta-value">физарум/prod-like</span></div>
+    <div class="meta-item"><span class="meta-label">Версия стандарта:</span><span class="meta-value">1.1</span></div>
+    <div class="meta-item"><span class="meta-label">Профиль:</span><span class="meta-value">BASIC</span></div>
+    <div class="meta-item"><span class="meta-label">Дата:</span><span class="meta-value">27 июля 2026</span></div>
+  </div>
+
+  <!-- 1. Customer Need -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">1</div>
+      <h2>Потребность клиента</h2>
+      <span class="count">1</span>
+    </div>
+    <div class="section-body">
+      <div class="need-grid">
+        <span class="label">ID</span><span class="value" style="font-size:0.82rem;color:var(--accent);font-weight:700;">NEED-FIZARUM-001</span>
+        <span class="label">Название</span><span class="value">Аналитика корпоративных данных по NL-запросу</span>
+        <span class="label">Тип потребности</span><span class="value">Информационно-аналитическая</span>
+        <span class="label">Признаки распознавания</span><span class="value">Пользователь задаёт вопрос на естественном языке о HR, оргструктуре, KPI</span>
+        <span class="label">Допустимые КП</span><span class="value">
+          <span class="tag tag-cp">CP-FIZARUM-001</span> Прямой вопрос-ответ (основной режим)
+          <span style="display:block;margin-top:0.25rem;"><span class="tag tag-cp">CP-FIZARUM-002</span> Root Cause Analysis (RCA)</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Client Path -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--green-light);color:var(--green);">2</div>
+      <h2>Клиентские пути</h2>
+      <span class="count">2</span>
+    </div>
+    <div class="section-body">
+      <table class="obj-table">
+        <thead><tr><th>ID</th><th>Название</th><th>Потребность</th><th>Состояние «до» → Цель</th><th>Критерий результата</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="id-cell">CP-FIZARUM-001</td>
+            <td>Аналитический вопрос-ответ</td>
+            <td><span class="tag tag-need">NEED-001</span></td>
+            <td class="desc-cell">Пользователь имеет вопрос, но не имеет ответа</td>
+            <td class="desc-cell">Пользователь получил проверяемый аналитический ответ</td>
+          </tr>
+          <tr>
+            <td class="id-cell">CP-FIZARUM-002</td>
+            <td>Root Cause Analysis</td>
+            <td><span class="tag tag-need">NEED-001</span></td>
+            <td class="desc-cell">Есть проблема/метрика, нет понимания причин</td>
+            <td class="desc-cell">Сформировано RCA-заключение с верифицированными гипотезами</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 3. Autonomous Process -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--purple-light);color:var(--purple);">3</div>
+      <h2>Автономные процессы</h2>
+      <span class="count">2</span>
+    </div>
+    <div class="section-body">
+      <table class="obj-table">
+        <thead><tr><th>ID</th><th>Клиентский путь</th><th>Логика сборки</th><th>Режим</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="id-cell">AP-CP-FIZARUM-001</td>
+            <td><span class="tag tag-cp">CP-001</span> Вопрос-ответ</td>
+            <td class="desc-cell">Планирование → семантический поиск схемы → SQL → синтез ответа</td>
+            <td>CONFIRM</td>
+          </tr>
+          <tr>
+            <td class="id-cell">AP-CP-FIZARUM-002</td>
+            <td><span class="tag tag-cp">CP-002</span> RCA</td>
+            <td class="desc-cell">Построение дерева гипотез (MECE) → параллельная верификация → синтез заключения</td>
+            <td>CONFIRM</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. BBB -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--amber-light);color:var(--amber);">4</div>
+      <h2>BBB — Business Building Blocks</h2>
+      <span class="count">8</span>
+    </div>
+    <div class="section-body">
+      <div class="bbb-list">
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-001</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Поиск схемы данных</div>
+            <div class="bbb-desc">Семантический поиск по таблицам через OpenSearch / LanceDB</div>
+          </div>
+          <span class="tag tag-ao">AO-001–002</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-002</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Исполнение SQL-запроса</div>
+            <div class="bbb-desc">Выполнение запроса к Greenplum / PostgreSQL / SQLite</div>
+          </div>
+          <span class="tag tag-ao">AO-003–004</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-003</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Парсинг загруженных файлов</div>
+            <div class="bbb-desc">Извлечение текста из PDF, DOCX, XLSX, CSV, TXT, MD</div>
+          </div>
+          <span class="tag tag-ao">AO-005</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-004</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Построение дерева гипотез</div>
+            <div class="bbb-desc">MECE-дерево корневых причин (LLM, без доступа к данным)</div>
+          </div>
+          <span class="tag tag-ao">AO-006</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-005</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Верификация гипотезы</div>
+            <div class="bbb-desc">Проверка гипотезы через данные (Manager → Verifier sub-agents)</div>
+          </div>
+          <span class="tag tag-ao">AO-007</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-006</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Синтез ответа / заключения</div>
+            <div class="bbb-desc">Формирование финального ответа (NL) или RCA-Executive Summary</div>
+          </div>
+          <span class="tag tag-ao">AO-008</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-007</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Сохранение в память</div>
+            <div class="bbb-desc">Запись наблюдений (observation) в S3 memory store</div>
+          </div>
+          <span class="tag tag-ao">AO-009</span>
+        </div>
+        <div class="bbb-item">
+          <span class="bbb-id">BBB-008</span>
+          <div class="bbb-info">
+            <div class="bbb-name">Управление историей</div>
+            <div class="bbb-desc">Чтение / запись истории диалогов (Postgres / SQLite)</div>
+          </div>
+          <span class="tag tag-ao">AO-010</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Atomic Operations -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--cyan-light);color:var(--cyan);">5</div>
+      <h2>Атомарные операции</h2>
+      <span class="count">10</span>
+    </div>
+    <div class="section-body">
+      <div class="ao-list">
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-001</span> Векторизация запроса <span class="ao-bbb-ref">BBB-001</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-002</span> Поиск k ближайших схем <span class="ao-bbb-ref">BBB-001</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-003</span> Подключение к БД <span class="ao-bbb-ref">BBB-002</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-004</span> Исполнение SQL <span class="ao-bbb-ref">BBB-002</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-005</span> Извлечение текста из файла <span class="ao-bbb-ref">BBB-003</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-006</span> Вызов LLM (построение гипотез) <span class="ao-bbb-ref">BBB-004</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-007</span> Вызов LLM (Manager / Verifier) <span class="ao-bbb-ref">BBB-005</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-008</span> Вызов LLM (синтез) <span class="ao-bbb-ref">BBB-006</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-009</span> Сохранение observation в S3 <span class="ao-bbb-ref">BBB-007</span></div>
+        <div class="ao-item"><span class="ao-id">AO-FIZARUM-010</span> CRUD история диалогов <span class="ao-bbb-ref">BBB-008</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Guardrails -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--pink-light);color:var(--pink);">6</div>
+      <h2>Guardrails (ограничения исполнения)</h2>
+      <span class="count">5</span>
+    </div>
+    <div class="section-body">
+      <div class="grd-list">
+        <div class="grd-item">
+          <span class="grd-id">GRD-FIZARUM-001</span>
+          Запрет на модификацию данных (только SELECT)
+          <span class="grd-applies">AP, BBB-002, AO-004</span>
+        </div>
+        <div class="grd-item">
+          <span class="grd-id">GRD-FIZARUM-002</span>
+          Таймаут исполнения SQL (60 с)
+          <span class="grd-applies">BBB-002</span>
+        </div>
+        <div class="grd-item">
+          <span class="grd-id">GRD-FIZARUM-003</span>
+          Максимальное число итераций верификации
+          <span class="grd-applies">AP-CP-002, BBB-005</span>
+        </div>
+        <div class="grd-item">
+          <span class="grd-id">GRD-FIZARUM-004</span>
+          Таймаут на весь автономный процесс (10 мин)
+          <span class="grd-applies">AP</span>
+        </div>
+        <div class="grd-item">
+          <span class="grd-id">GRD-FIZARUM-005</span>
+          Лимит строк возвращаемых данных
+          <span class="grd-applies">BBB-002, AO-004</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Roles -->
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:#f1f5f9;color:#475569;">7</div>
+      <h2>Роли и владельцы</h2>
+      <span class="count">3</span>
+    </div>
+    <div class="section-body">
+      <div class="roles-grid">
+        <div class="role-card">
+          <div class="role-title">👤 Владелец продукта</div>
+          <div class="role-desc">Определяет потребность, клиентский путь, границы автономности, business intent</div>
+        </div>
+        <div class="role-card">
+          <div class="role-title">⚙️ Технический владелец</div>
+          <div class="role-desc">Отвечает за реализацию автономных процессов, BBB, атомарных операций и guardrails</div>
+        </div>
+        <div class="role-card">
+          <div class="role-title">🔍 Gate / Контролёр качества</div>
+          <div class="role-desc">Проверяет соответствие стандарту перед запуском в заявленном режиме</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Стандарт автономного процесса v1.1 · BASIC_RECORD · AI-агент аналитики корпоративных данных
+  </div>
+
+</div>
+</body>
+</html>
