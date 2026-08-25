@@ -14,22 +14,8 @@ from pathlib import Path
 
 TESTS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = TESTS_DIR.parent
-EXAMPLE_INTENT = PROJECT_ROOT / "examples" / "business_intent.yaml"
 FIXTURE_REPO = TESTS_DIR / "fixtures" / "mini_repo"
 FIXTURE_SCRIPT = TESTS_DIR / "make_fixture.sh"
-
-# Синтетическая фикстура другого стека: интерфейс, командная строка, очередь и
-# файлы. Нужна, чтобы слепота к чужой технологии проявлялась на прогоне.
-MULTISTACK_REPO = TESTS_DIR / "fixtures" / "multistack_repo"
-MULTISTACK_SCRIPT = TESTS_DIR / "make_fixture_multistack.sh"
-
-JUNIT_OK = TESTS_DIR / "fixtures" / "junit_ok.xml"
-JUNIT_ALL_SKIPPED = TESTS_DIR / "fixtures" / "junit_all_skipped.xml"
-
-
-def ensure_multistack_fixture() -> Path:
-    """Репозиторий другого стека; создаётся так же, как основная фикстура."""
-    return _ensure(MULTISTACK_REPO, MULTISTACK_SCRIPT)
 
 
 def ensure_fixture() -> Path:

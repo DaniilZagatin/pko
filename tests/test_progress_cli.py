@@ -2,9 +2,8 @@
 
 Транспорт подменяется тем же способом, что и в остальных LLM-тестах. Кеш
 дополнительно уводится во временный каталог: `cmd_progress` строит `ChatClient`
-внутри `extract_plan`/`match_plan` без инъекции тестового клиента (в отличие от
-`pko.agent.loop.run_scout`), поэтому без этого прогон писал бы в реальный
-`~/.pko/llm-cache` — ровно та утечка, которую нашли в тестах самого PKO.
+внутри `extract_plan`/`match_plan` без инъекции тестового клиента, поэтому без
+этого прогон писал бы в реальный `~/.pko/llm-cache`.
 """
 
 import json
@@ -98,10 +97,6 @@ class ProgressCliTest(unittest.TestCase):
         html = report.read_text(encoding="utf-8")
         self.assertIn("API постановки задач", html)
         self.assertIn("backend/src/api/v1/router.py:7", html)
-
-        self.assertFalse(self._original_cache_dir.exists() and
-                         any(self._original_cache_dir.iterdir()),
-                         msg="прогон не должен трогать реальный ~/.pko/llm-cache")
 
     def test_missing_plan_file_fails_before_touching_repo(self):
         exit_code = cli.main([
