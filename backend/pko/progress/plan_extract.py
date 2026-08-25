@@ -1,11 +1,20 @@
 """Роль planner: текст слайдов → структурированный список пунктов плана.
 
-По образцу `pko.assemble.llm_map.propose_bbb_groups`: ответ обязан быть одним
-JSON-объектом и ссылаться только на реально переданные номера слайдов — всё
-остальное отбрасывается, а не подставляется по умолчанию. Модель здесь не
-видит код целевого репозитория, только текст презентации. Без endpoint'а или
-при сбое возвращается пустой результат с причиной в `notes` — это уходит в
-`gaps` итогового отчёта, а не проваливается молча.
+Вход модели — читаемый текст по слайдам и строкам (`_render_slide`), не JSON с
+координатами: LLM надёжнее разбирает связный размеченный текст, чем считает
+геометрию по числам `left`/`top` — это не vision-модель, пространственное
+рассуждение по координатам для неё не сильная сторона. Строки уже сгруппированы
+кодом (`pptx_reader.cluster_rows`, по близости `top`) — код группирует то, что
+стоит рядом, а какая это по смыслу строка (задачи или этапы), решает модель по
+самому тексту. Заголовок/описание фигуры тоже разведены явно (первая строка
+текста фигуры — заголовок, остальное — описание), а не склеены в одну строку.
+
+Выход модели, наоборот, остаётся строгим JSON — ответ обязан быть одним
+JSON-объектом и ссылаться только на реально переданные номера слайдов, по
+образцу `pko.assemble.llm_map.propose_bbb_groups`: структурированный вывод
+проще заземлить и распарсить, чем вычленять из свободного текста. Без
+endpoint'а или при сбое возвращается пустой результат с причиной в `notes` —
+это уходит в `gaps` итогового отчёта, а не проваливается молча.
 """
 
 from __future__ import annotations
@@ -17,13 +26,16 @@ from dataclasses import dataclass, field
 from pko.errors import LlmError
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
-from pko.progress.pptx_reader import Slide
+from pko.progress.pptx_reader import Slide, cluster_rows
 from pko.progress.schema import PlanItem
 
 _SYSTEM = (
     "Ты читаешь текст слайдов презентации с планом работы команды и превращаешь его "
-    "в список пунктов плана. Отвечай строго одним JSON-объектом вида "
-    '{"items": [{"id": "...", "title": "...", "stage": "...", '
+    "в список пунктов плана. Слайды даны построчно: каждая строка — фигуры, стоящие "
+    "визуально рядом (например, ряд карточек задач или ряд этапов таймлайна); что "
+    "именно означает строка, определяй по её тексту, а не по номеру. У каждой фигуры "
+    "первая строка текста — заголовок, дальше — описание. Отвечай строго одним "
+    'JSON-объектом вида {"items": [{"id": "...", "title": "...", "stage": "...", '
     '"description": "...", "source_slide": N}]}. '
     "source_slide — номер слайда из входных данных, с которого взят пункт; не "
     "придумывай номера, которых не было во входе. id — короткий устойчивый "
@@ -62,12 +74,7 @@ def extract_plan(
         return PlanExtractionResult(notes=["В презентации нет текстовых фигур"])
 
     known_slides = {s.number for s in content_slides}
-    payload = [_slide_payload(s) for s in content_slides]
-    user = (
-        "Слайды презентации (номер, заголовок, фигуры с текстом, координатами в "
-        "дюймах и предполагаемой раскладкой):\n\n"
-        + json.dumps(payload, ensure_ascii=False, indent=2)
-    )
+    user = "Слайды презентации:\n\n" + "\n\n".join(_render_slide(s) for s in content_slides)
 
     chat_client = client if client is not None else ChatClient(spec=spec)
     try:
@@ -98,13 +105,30 @@ def extract_plan(
     return PlanExtractionResult(items=items, source="llm", notes=notes)
 
 
-def _slide_payload(slide: Slide) -> dict:
-    return {
-        "slide": slide.number,
-        "heading": slide.heading,
-        "layout_guess": slide.layout.kind,
-        "shapes": [{"text": s.text, "left": s.left, "top": s.top} for s in slide.shapes],
-    }
+def _render_slide(slide: Slide) -> str:
+    """Слайд как читаемый текст: заголовок, дальше — строки фигур по порядку.
+
+    Не JSON — см. докстринг модуля: связный текст с явной структурой строк
+    надёжнее для LLM, чем нагромождение чисел-координат.
+    """
+    header = f"Слайд {slide.number}"
+    if slide.heading:
+        header += f": {slide.heading}"
+    lines = [header]
+
+    rows = cluster_rows(slide.shapes)
+    if not rows:
+        lines.append("  (текстовых фигур на слайде нет)")
+        return "\n".join(lines)
+
+    for row_no, row in enumerate(rows, start=1):
+        lines.append(f"  Строка {row_no} (фигур: {len(row)}):")
+        for item_no, shape in enumerate(row, start=1):
+            title, _, body = shape.text.partition("\n")
+            lines.append(f"    {item_no}. {title.strip()}")
+            if body.strip():
+                lines.append(f"       {body.strip()}")
+    return "\n".join(lines)
 
 
 def _validate_item(raw: object, known_slides: set[int], seen_ids: set[str]) -> PlanItem | None:

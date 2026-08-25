@@ -1,17 +1,24 @@
-"""Чтение PPTX с планом: текст фигур по слайдам вместе с их расположением.
+"""Чтение PPTX с планом: текст фигур по слайдам, сгруппированный в строки.
 
 Формат входа предполагается текстовым (карточки задач, таймлайн-схема как
 нативные фигуры PowerPoint) — см. Фазу 0 плана. OCR/vision здесь нет: слайд без
 единой текстовой фигуры — сигнал «возможно, это картинка», а не пустой слайд,
 и он помечается отдельно (`Slide.is_empty`), а не проваливается молча.
+
+Группированные фигуры PowerPoint («оформить стилем» на практике часто значит
+сгруппировать карточку целиком) разворачиваются рекурсивно — без этого их текст
+не виден вообще: `slide.shapes` не спускается внутрь группы сам по себе, и
+слайд с реальным содержимым выглядел бы неотличимо от пустого.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterable
 
 from pptx import Presentation
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.util import Emu
 
 
@@ -27,12 +34,6 @@ class SlideShape:
 
 
 @dataclass(frozen=True)
-class LayoutGuess:
-    kind: str  # "SINGLE" | "TIMELINE" | "CARD_GRID" | "LIST"
-    reason: str
-
-
-@dataclass(frozen=True)
 class Slide:
     number: int
     heading: str | None
@@ -43,8 +44,8 @@ class Slide:
         return not self.heading and not self.shapes
 
     @property
-    def layout(self) -> LayoutGuess:
-        return guess_layout(self.shapes)
+    def rows(self) -> list[list[SlideShape]]:
+        return cluster_rows(self.shapes)
 
 
 def read_deck(path: str | Path) -> list[Slide]:
@@ -52,15 +53,20 @@ def read_deck(path: str | Path) -> list[Slide]:
     prs = Presentation(str(path))
     slides: list[Slide] = []
     for i, slide in enumerate(prs.slides, start=1):
-        raw_shapes = _text_shapes(slide)
+        raw_shapes = _text_shapes(slide.shapes)
         heading, rest = _split_heading(raw_shapes)
         slides.append(Slide(number=i, heading=heading, shapes=rest))
     return slides
 
 
-def _text_shapes(slide) -> list[SlideShape]:
+def _text_shapes(shapes: Iterable) -> list[SlideShape]:
     out: list[SlideShape] = []
-    for shp in slide.shapes:
+    for shp in shapes:
+        if getattr(shp, "shape_type", None) == MSO_SHAPE_TYPE.GROUP:
+            # Координаты дочерних фигур python-pptx уже отдаёт в системе
+            # слайда, не группы — пересчитывать смещение не нужно.
+            out.extend(_text_shapes(shp.shapes))
+            continue
         if not getattr(shp, "has_text_frame", False):
             continue
         text = shp.text_frame.text.strip()
@@ -89,11 +95,9 @@ def _split_heading(shapes: list[SlideShape]) -> tuple[str | None, list[SlideShap
     """Отделить подпись слайда от контентных фигур по позиции и форме.
 
     Заголовок — самая верхняя фигура, короткая и целиком выше остальных.
-    Без этого шага таймлайн (все фигуры на одной высоте) вместе с подписью над
-    ним (на другой высоте) выглядит как «разброс и по top, и по left» и
-    ошибочно читается как сетка карточек — это показал спайк на синтетической
-    презентации: слайд с таймлайном без разбора заголовка классифицировался
-    как CARD_GRID.
+    Без этого шага строка вычисляется вместе с подписью над ней, и она
+    засчитывается как ещё одна «строка» из одной фигуры — расклад по строкам
+    остаётся верным, но с лишней однострочной группой сверху.
     """
     if len(shapes) < 2:
         return None, list(shapes)
@@ -106,20 +110,34 @@ def _split_heading(shapes: list[SlideShape]) -> tuple[str | None, list[SlideShap
     return None, list(shapes)
 
 
-def guess_layout(shapes: list[SlideShape]) -> LayoutGuess:
-    """Грубая эвристика раскладки — подсказка для LLM-роли planner, не факт.
+# Насколько близко по вертикали должны стоять фигуры, чтобы считаться одной
+# строкой (ряд карточек, ряд этапов таймлайна). Больше — уже новая строка.
+_ROW_TOP_TOLERANCE = 0.4
 
-    Точность здесь не обязана быть высокой: раскладка идёт в промпт как
-    ориентир («вероятно, таймлайн»), а не как единственный источник структуры.
+
+def cluster_rows(shapes: list[SlideShape]) -> list[list[SlideShape]]:
+    """Сгруппировать фигуры по близости `top` — визуальные строки на слайде.
+
+    Это группировка по расположению, а не по смыслу: код не решает, ряд
+    карточек это или ряд этапов таймлайна — только то, что эти фигуры стоят
+    на одной высоте и, скорее всего, составляют одну логическую строку.
+    Смысл строки остаётся за LLM, у которого есть сам текст.
+
+    Без этого шага несколько разных разделов на одном слайде (например,
+    карточки задач и таймлайн, оформленные вместе без разделяющего
+    заголовка) сливались в один плоский список фигур, и заголовок
+    «поехавшей» строки было неоткуда взять — теперь строки видны отдельно
+    друг от друга даже без заголовка между ними.
     """
-    if len(shapes) <= 1:
-        return LayoutGuess("SINGLE", "одна фигура или меньше")
-    tops = sorted(s.top for s in shapes)
-    lefts = sorted(s.left for s in shapes)
-    top_spread = tops[-1] - tops[0]
-    left_spread = lefts[-1] - lefts[0]
-    if top_spread < 0.5 and left_spread > 1.0:
-        return LayoutGuess("TIMELINE", "фигуры на одной высоте, разнесены по горизонтали")
-    if top_spread > 1.0 and left_spread > 1.0:
-        return LayoutGuess("CARD_GRID", "фигуры варьируются и по высоте, и по горизонтали")
-    return LayoutGuess("LIST", "фигуры идут одна под другой")
+    if not shapes:
+        return []
+    ordered = sorted(shapes, key=lambda s: (s.top, s.left))
+    rows: list[list[SlideShape]] = [[ordered[0]]]
+    for shp in ordered[1:]:
+        if abs(shp.top - rows[-1][-1].top) <= _ROW_TOP_TOLERANCE:
+            rows[-1].append(shp)
+        else:
+            rows.append([shp])
+    for row in rows:
+        row.sort(key=lambda s: s.left)
+    return rows
