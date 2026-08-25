@@ -28,6 +28,11 @@ CONSEQUENCE_HIGH = {"high", "высокая"}
 
 MODES = ("HUMAN_ONLY", "ASSIST", "CONFIRM", "AUTO")
 
+# Уровни машинного соответствия §8.0. Уровень определяется отдельно от профиля
+# и не может ослаблять его требования.
+BASIC_RECORD = "BASIC_RECORD"
+FULL_RESOURCE_MODEL = "FULL_RESOURCE_MODEL"
+
 # Матрица 0.2: значимость последствий × зрелость жизненного цикла.
 _MATRIX = {
     "low": (ZONE_BASIC, ZONE_BASIC, ZONE_FULL),
@@ -45,8 +50,26 @@ class Profile:
     inputs: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def machine_level(self) -> str:
-        return "BASIC_RECORD" if self.value == BASIC else "FULL_RESOURCE_MODEL"
+    def required_machine_level(self) -> str:
+        """Какой уровень машинного соответствия требует профиль (§8.0)."""
+        return BASIC_RECORD if self.value == BASIC else FULL_RESOURCE_MODEL
+
+    @property
+    def achieved_machine_level(self) -> str:
+        """Какой уровень PKO фактически выпускает.
+
+        Всегда `BASIC_RECORD`: PKO собирает одну Gate Card и запись анализа, а
+        ресурсной модели 8.1–8.14 с `ResourceRef`, конвертами, событиями и
+        инвариантами связности у него нет. Раньше это поле называлось
+        `machine_level` и для профиля FULL печатало `FULL_RESOURCE_MODEL` —
+        отчёт заявлял уровень, которого не достиг, и читатель карточки видел
+        подтверждение промышленного контура там, где его не существует.
+        """
+        return BASIC_RECORD
+
+    @property
+    def machine_level_satisfied(self) -> bool:
+        return self.achieved_machine_level == self.required_machine_level
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,7 +77,9 @@ class Profile:
             "zone": self.zone,
             "blocker": self.blocker,
             "triggers": self.triggers,
-            "machine_level": self.machine_level,
+            "required_machine_level": self.required_machine_level,
+            "achieved_machine_level": self.achieved_machine_level,
+            "machine_level_satisfied": self.machine_level_satisfied,
             "inputs": self.inputs,
         }
 

@@ -1,0 +1,24 @@
+# Цели бенчмарка агента разведки.
+#
+# Формат — подмножество YAML, которое читает PKO (`pko.util.yamlmini`): плоские
+# ключи, вложенные словари, списки строк и свёрнутые блоки. Списка словарей
+# (`- name: ...`) парсер не поддерживает, поэтому цель задаётся вложенным
+# словарём: ключ верхнего уровня — имя цели.
+#
+# Целей две. Первая — сам PKO: репозиторий под рукой, правильный ответ известен
+# автору, но случай заведомо лёгкий (Python с явной структурой). Вторая —
+# синтетическая фикстура другого стека: интерфейс, командная строка, очередь и
+# файлы, без FastAPI, LangGraph и SQL. Слепота к чужой технологии видна только
+# на второй; её создаёт `tests/make_fixture_multistack.sh`.
+
+targets:
+  pko-self:
+    repo_path: .
+    branch: master
+    max_versions: 1
+    intent: examples/business_intent.yaml
+  multistack:
+    repo_path: tests/fixtures/multistack_repo
+    setup_script: tests/make_fixture_multistack.sh
+    branch: master
+    max_versions: 1

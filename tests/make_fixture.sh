@@ -161,8 +161,10 @@ maturity: pilot
 consequence: low
 scale: local
 external_effects: none
+decision_boundary: END_TO_END_PROCESS
 in_scope: Чтение данных, поиск схем, синтез ответа
 out_of_scope: Изменение данных, внешние коммуникации
+forbidden_effects: Изменение данных, внешние коммуникации
 EOF
 
 # Файл переписывается целиком, как и остальные в этом скрипте: `sed -i ''` работает

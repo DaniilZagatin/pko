@@ -9,6 +9,12 @@ description = "PKO — генератор паспортов, таксономи
 requires-python = ">=3.11"
 dependencies = []
 
+# Ядро PKO остаётся без зависимостей. `progress` — отдельный пайплайн
+# (pko.progress: PPTX-план vs код репозитория), которому нужен парсер PPTX;
+# он ставится только тем, кому нужна эта команда, а не всем пользователям pko.
+[project.optional-dependencies]
+progress = ["python-pptx>=1.0"]
+
 [project.scripts]
 pko = "pko.cli:main"
 
@@ -20,3 +26,10 @@ pythonpath = ["src", "tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# Промпт агента — данные пакета. Без этой строки при установке колеса он не
+# попадёт внутрь, и режим разведки упадёт на чтении файла.
+# Второй шаблон обязателен: `*.md` не покрывает подкаталог, и паки промпта
+# потерялись бы при установке колеса — разведка упала бы на чтении пака.
+pko = ["agent/prompts/*.md", "agent/prompts/packs/*.md"]

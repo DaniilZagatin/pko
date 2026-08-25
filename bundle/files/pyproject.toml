@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pko"
+version = "0.1.0"
+description = "PKO — генератор паспортов, таксономии и BASIC Gate Card по коду репозитория"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+pko = "pko.cli:main"
+
+[tool.pytest.ini_options]
+# Тесты написаны на unittest и запускаются как `make test`; эта секция нужна,
+# чтобы их подхватывал и pytest, если сборочный контур использует его.
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Промпт агента — данные пакета. Без этой строки при установке колеса он не
+# попадёт внутрь, и режим разведки упадёт на чтении файла.
+# Второй шаблон обязателен: `*.md` не покрывает подкаталог, и паки промпта
+# потерялись бы при установке колеса — разведка упала бы на чтении пака.
+pko = ["agent/prompts/*.md", "agent/prompts/packs/*.md"]

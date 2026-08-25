@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Сравнение версий</title>
+<style>
+:root {
+  --bg: #f8f9fb; --surface: #ffffff; --border: #e2e5ea;
+  --text: #1e2229; --text-secondary: #5e6879;
+  --accent: #2563eb; --accent-light: #eff4ff;
+  --green: #059669; --green-light: #ecfdf5;
+  --amber: #d97706; --amber-light: #fffbeb;
+  --red: #dc2626; --red-light: #fef2f2;
+  --purple: #7c3aed; --purple-light: #f5f3ff;
+  --cyan: #0891b2; --cyan-light: #ecfeff;
+  --pink: #db2777; --pink-light: #fdf2f8;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem 1rem;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+.header { text-align: center; padding: 2rem 0 2.5rem; }
+.header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+.header .subtitle { color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem; }
+.badge {
+  display: inline-block; background: var(--accent-light); color: var(--accent);
+  font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.75rem; border-radius: 999px;
+  margin-top: 0.5rem; letter-spacing: 0.02em;
+}
+.badge-warn { background: var(--amber-light); color: var(--amber); }
+.badge-danger { background: var(--red-light); color: var(--red); }
+.meta-bar {
+  display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+  padding: 1rem 1.5rem; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 1.5rem; font-size: 0.85rem;
+}
+.meta-item { display: flex; align-items: center; gap: 0.4rem; }
+.meta-label { color: var(--text-secondary); }
+.meta-value { font-weight: 600; }
+.section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
+}
+.section-header {
+  padding: 1rem 1.5rem; display: flex; align-items: center; gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-header .icon {
+  width: 36px; height: 36px; border-radius: 8px; display: flex;
+  align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
+}
+.section-header h2 { font-size: 1.05rem; font-weight: 600; flex: 1; }
+.section-header .count {
+  font-size: 0.8rem; color: var(--text-secondary); background: var(--bg);
+  padding: 0.15rem 0.6rem; border-radius: 999px;
+}
+.section-body { padding: 1.5rem; }
+.tag {
+  display: inline-block; font-size: 0.75rem; font-weight: 600;
+  padding: 0.15rem 0.5rem; border-radius: 4px; margin-right: 0.25rem;
+}
+.tag-need { background: var(--accent-light); color: var(--accent); }
+.tag-cp { background: var(--green-light); color: var(--green); }
+.tag-ap { background: var(--purple-light); color: var(--purple); }
+.tag-bbb { background: var(--amber-light); color: var(--amber); }
+.tag-ao { background: var(--cyan-light); color: var(--cyan); }
+.tag-grd { background: var(--pink-light); color: var(--pink); }
+.obj-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.obj-table th {
+  text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; font-size: 0.8rem;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary);
+  border-bottom: 2px solid var(--border);
+}
+.obj-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.obj-table tr:last-child td { border-bottom: none; }
+.obj-table .id-cell { font-weight: 600; white-space: nowrap; font-size: 0.82rem; }
+.obj-table .desc-cell { color: var(--text-secondary); }
+.origin {
+  display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+  padding: 0.05rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; white-space: nowrap;
+}
+.origin-accent { background: var(--accent-light); color: var(--accent); }
+.origin-green { background: var(--green-light); color: var(--green); }
+.origin-amber { background: var(--amber-light); color: var(--amber); }
+.origin-red { background: var(--red-light); color: var(--red); }
+.origin-purple { background: var(--purple-light); color: var(--purple); }
+.evidence { display: block; margin-top: 0.35rem; font-size: 0.78rem; color: var(--text-secondary); }
+.evidence code { background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 3px; }
+.evidence-row { padding: 0.1rem 0; }
+.evidence-where {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem;
+  color: var(--text-muted, #98a2b3); white-space: nowrap;
+}
+.evidence-more { font-style: italic; opacity: 0.8; }
+.gap-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.gap-item {
+  padding: 0.6rem 0.9rem; background: var(--amber-light); border-radius: 8px;
+  font-size: 0.85rem; color: #7c4a03;
+}
+.footer {
+  text-align: center; color: var(--text-secondary); font-size: 0.8rem;
+  padding: 2rem 0 1rem; border-top: 1px solid var(--border); margin-top: 0.5rem;
+}
+@media (max-width: 768px) {
+  .obj-table th, .obj-table td { padding: 0.5rem; }
+  .meta-bar { flex-direction: column; align-items: center; }
+}
+
+.status { display:inline-block; font-size:0.72rem; font-weight:700; padding:0.1rem 0.45rem; border-radius:4px; }
+.st-added { background: var(--green-light); color: var(--green); }
+.st-removed { background: var(--red-light); color: var(--red); }
+.st-changed { background: var(--amber-light); color: var(--amber); }
+.st-same { background: var(--bg); color: var(--text-secondary); }
+.cmp { width:100%; border-collapse:collapse; font-size:0.85rem; }
+.cmp th { text-align:left; padding:0.5rem 0.7rem; color:var(--text-secondary); font-size:0.75rem;
+  text-transform:uppercase; letter-spacing:0.04em; border-bottom:2px solid var(--border); }
+.cmp td { padding:0.5rem 0.7rem; border-bottom:1px solid var(--border); vertical-align:top; }
+.cmp .before { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Сравнение версий</h1>
+    <div class="subtitle">poc-ai-agent-redesainer · v1 → current</div>
+    <div class="badge">53fe3784 → 6a225969</div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">≡</div>
+      <h2>Общая оценка</h2>
+    </div>
+    <div class="section-body" style="font-size:0.92rem;">Между версиями v1 и current количество потребностей, клиентских путей и процессов осталось неизменным — по одному объекту каждого типа. Добавлены 21 объект, удалений не зафиксировано, два объекта изменены, один остался без изменений. Потребность «Автономный редизайн клиентских путей и процессов» изменилась по полю «Признаки распознавания», а процесс «Автономный процесс клиентского пути» — по полям «Условия запуска», «Правила сборки траектории», «Допустимые BBB» и «Переходы». В системе появились девять строительных блоков, включая граф исполнения LangGraph, инструменты работы с артефактами, модули «databases», «prompts», «schemas», «settings», приём запросов пользователя, приём и обработку сообщений и сервисный слой. Добавлены семь архитектурных объектов: вызов языковой модели, изменение и чтение данных SQL-запросом, обращения к внешним системам LangChain, LangGraph, Phoenix tracing и реляционной БД через SQLAlchemy. Также введены пять ограничений: три ограничения времени исполнения (timeout), ограничение времени исполнения для модуля «backend» и ограничение «Только чтение данных (SELECT)».</div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--purple-light);color:var(--purple);">Σ</div>
+      <h2>Объекты управления</h2>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>Тип</th><th>v1</th>
+      <th>current</th><th>Diff</th></tr></thead>
+      <tbody><tr><td>Потребность клиента</td><td>1</td><td>1</td><td><span class='status st-same'>—</span></td></tr><tr><td>Клиентские пути</td><td>1</td><td>1</td><td><span class='status st-same'>—</span></td></tr><tr><td>Автономные процессы</td><td>1</td><td>1</td><td><span class='status st-same'>—</span></td></tr><tr><td>BBB</td><td>0</td><td>9</td><td><span class='status st-added'>+9</span></td></tr><tr><td>Атомарные операции</td><td>0</td><td>7</td><td><span class='status st-added'>+7</span></td></tr><tr><td>Guardrails</td><td>0</td><td>5</td><td><span class='status st-added'>+5</span></td></tr></tbody></table>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">◆</div>
+      <h2>Потребность клиента</h2><span class="count">1</span>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>ID</th><th>Название</th><th>Статус</th>
+      <th>Что изменилось</th></tr></thead><tbody><tr><td class='id-cell'>NEED-POC-AI-AGENT-REDESAINER-001</td><td>Автономный редизайн клиентских путей и процессов</td><td><span class='status st-changed'>изменён</span></td><td><div><strong>Признаки распознавания:</strong> <span class='before'>не установлено</span> → POST / · POST /aris · POST /chats/ · POST /chats/{chat_id}/artifacts/ · POST /chats/{chat…</div></td></tr></tbody></table>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">◆</div>
+      <h2>Автономные процессы</h2><span class="count">1</span>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>ID</th><th>Название</th><th>Статус</th>
+      <th>Что изменилось</th></tr></thead><tbody><tr><td class='id-cell'>AP-CP-POC-AI-AGENT-REDESAINER-001</td><td>Автономный процесс клиентского пути</td><td><span class='status st-changed'>изменён</span></td><td><div><strong>Условия запуска:</strong> <span class='before'>не установлено</span> → POST / · POST /aris · POST /chats/ · POST /chats/{chat_id}/artifacts/ · POST /chats/{chat…</div><div><strong>Правила сборки траектории:</strong> <span class='before'>не установлено</span> → agent_decision · continue_chat · create_artifact · faq_response · update_artifact</div><div><strong>Допустимые BBB:</strong> <span class='before'>не установлено</span> → BBB-001 · BBB-002 · BBB-003 · BBB-004 · BBB-005 · BBB-006 · BBB-007 · BBB-008 · BBB-009</div><div><strong>Переходы:</strong> <span class='before'>—</span> → agent_decision→route_action · continue_chat→END · create_artifact→END · update_artifact→E…</div></td></tr></tbody></table>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">◆</div>
+      <h2>BBB</h2><span class="count">9</span>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>ID</th><th>Название</th><th>Статус</th>
+      <th>Что изменилось</th></tr></thead><tbody><tr><td class='id-cell'>BBB-001</td><td>Граф исполнения LangGraph</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-002</td><td>Инструменты работы с артефактами</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-003</td><td>Модуль «databases»</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-004</td><td>Модуль «prompts»</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-005</td><td>Модуль «schemas»</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-006</td><td>Модуль «settings»</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-007</td><td>Приём запросов пользователя</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-008</td><td>Приём и обработка сообщений</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>BBB-009</td><td>Сервисный слой</td><td><span class='status st-added'>новый</span></td><td></td></tr></tbody></table>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">◆</div>
+      <h2>Атомарные операции</h2><span class="count">7</span>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>ID</th><th>Название</th><th>Статус</th>
+      <th>Что изменилось</th></tr></thead><tbody><tr><td class='id-cell'>AO-001</td><td>Вызов языковой модели</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-002</td><td>Изменение данных SQL-запросом</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-003</td><td>Обращение к внешней системе: LangChain</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-004</td><td>Обращение к внешней системе: LangGraph</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-005</td><td>Обращение к внешней системе: Phoenix tracing</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-006</td><td>Обращение к внешней системе: Реляционная БД через SQLAlchemy</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>AO-007</td><td>Чтение данных SQL-запросом</td><td><span class='status st-added'>новый</span></td><td></td></tr></tbody></table>
+    </div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">◆</div>
+      <h2>Guardrails</h2><span class="count">5</span>
+    </div>
+    <div class="section-body">
+      <table class="cmp"><thead><tr><th>ID</th><th>Название</th><th>Статус</th>
+      <th>Что изменилось</th></tr></thead><tbody><tr><td class='id-cell'>GRD-001</td><td>Ограничение времени исполнения (timeout)</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>GRD-002</td><td>Ограничение времени исполнения (timeout)</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>GRD-003</td><td>Ограничение времени исполнения — Модуль «backend»</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>GRD-004</td><td>Ограничение времени исполнения (timeout)</td><td><span class='status st-added'>новый</span></td><td></td></tr><tr><td class='id-cell'>GRD-005</td><td>Только чтение данных (SELECT)</td><td><span class='status st-added'>новый</span></td><td></td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="footer">Сравнение выполнено по моделям объектов, а не по тексту отчётов</div>
+</div>
+</body>
+</html>

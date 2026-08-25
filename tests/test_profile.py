@@ -32,7 +32,8 @@ class ProfilingScenarios(unittest.TestCase):
         self.assertEqual(profile.value, BASIC)
         self.assertEqual(profile.zone, ZONE_BASIC)
         self.assertFalse(profile.blocker)
-        self.assertEqual(profile.machine_level, "BASIC_RECORD")
+        self.assertEqual(profile.required_machine_level, "BASIC_RECORD")
+        self.assertTrue(profile.machine_level_satisfied)
         self.assertEqual(profile.triggers, [])
 
     def test_limited_launch_with_significant_effect_is_full(self):
@@ -65,7 +66,11 @@ class ProfilingScenarios(unittest.TestCase):
         self.assertEqual(profile.value, FULL)
         self.assertEqual(profile.zone, ZONE_BLOCKER)
         self.assertTrue(profile.blocker)
-        self.assertEqual(profile.machine_level, "FULL_RESOURCE_MODEL")
+        # Профиль требует ресурсную модель §8.1–8.14, а PKO выпускает
+        # `BASIC_RECORD`: заявлять достижение уровня было бы неправдой.
+        self.assertEqual(profile.required_machine_level, "FULL_RESOURCE_MODEL")
+        self.assertEqual(profile.achieved_machine_level, "BASIC_RECORD")
+        self.assertFalse(profile.machine_level_satisfied)
 
     def test_reverse_rule_basic_requires_all_conditions(self):
         """Обратная проверка: снятие любого условия BASIC переводит решение в FULL."""

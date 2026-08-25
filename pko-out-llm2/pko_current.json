@@ -1,0 +1,2615 @@
+{
+  "schema": "pko-model/0.1",
+  "meta": {
+    "repo": "poc-ai-agent-redesainer",
+    "branch": "master",
+    "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+    "commit_date": "2025-12-16",
+    "commit_subject": "Pull request #90: Release/0.0.2",
+    "version_label": "current",
+    "version_reason": "текущее состояние ветки",
+    "scout": "GLM-5.2",
+    "scout_endpoint": "http://tpgds-aihub0009.delta.sbrf.ru:2717/v1",
+    "assembler": "не используется: разведку ведёт агент",
+    "grouping_source": "agent"
+  },
+  "counts": {
+    "NEED": 1,
+    "JOURNEY": 1,
+    "PROCESS": 1,
+    "BBB": 9,
+    "AO": 7,
+    "GUARDRAIL": 5
+  },
+  "coverage": {
+    "files_total": 123,
+    "files_analyzed": 105,
+    "analyzed_globs": [
+      "*.py",
+      "pyproject.toml",
+      "requirements*.txt",
+      "package.json",
+      "*.yaml",
+      "*.yml",
+      "*.toml",
+      "*.ini",
+      "*.cfg",
+      ".env*",
+      "CODEOWNERS"
+    ],
+    "skipped_globs": [
+      "*.conf",
+      "*.gitignore",
+      "*.html",
+      "*.json",
+      "*.mako",
+      "*.md",
+      "*.sample",
+      "*.txt",
+      "без расширения"
+    ],
+    "ratio": 0.8537
+  },
+  "facts_count": 436,
+  "unknown_ratio": 0.3161,
+  "gaps": [
+    "Нет готового отчёта о тестах (JUnit XML): ни одно ограничение не может получить статус «подтверждено тестом».",
+    "Найден SQL, изменяющий данные (4 мест, все 4 — в миграциях схемы): инвариант «только чтение» не выполняется.",
+    "Не анализировались: *.tsx (20), *.ts (20), *.svg (8), *.css (7), *.gitignore (4)",
+    "Вне периметра первой версии — 57 файл(ов) (*.css, *.js, *.svg, *.ts, *.tsx): покрытие считается по backend-периметру, фронтенд статически не разбирается.",
+    "WARN [GRD-001] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED",
+    "WARN [GRD-002] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED",
+    "WARN [GRD-003] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED",
+    "WARN [GRD-004] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED",
+    "WARN [GRD-005] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED",
+    "Статический разбор не покрывает 42 файл(ов) прикладного кода (.js, .ts, .tsx): наблюдения по ним получены только агентом и не подтверждены разбором синтаксиса.",
+    "Агент: отброшено фактов без подтверждения ссылкой — 3",
+    "Агент: 3 находок совпали со статическим разбором по смыслу и строке и не были учтены повторно",
+    "Агент: принято фактов из разведки — 4 (каждый со ссылкой на строку кода, проверенной по конструкции)",
+    "Агент: наблюдений вне вердикта Gate — 1 (механизмы: llm); структурной проверки для них нет, в решении о допуске они не участвуют",
+    "Агент: подключены паки промпта — agents, data, web"
+  ],
+  "objects": [
+    {
+      "id": "NEED-POC-AI-AGENT-REDESAINER-001",
+      "kind": "NEED",
+      "name": "Автономный редизайн клиентских путей и процессов",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Система самостоятельно проводит редизайн клиентского пути от выбора процесса до утверждённых инициатив, включая расчёт финансового эффекта и списание бюджета на утверждённые мероприятия.\nАналитик подключается только для приёмки результата.",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле business_meaning"
+            }
+          ]
+        },
+        "Подтверждённая потребность": {
+          "value": "NEED-DPSS-REDESIGN-001",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле confirmed_need_id"
+            }
+          ]
+        },
+        "Клиент": {
+          "value": "Аналитик ДПСС, спонсор редизайна, финансовый контролёр",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле client"
+            }
+          ]
+        },
+        "Владелец результата": {
+          "value": "ТЕСТОВЫЙ ВЛАДЕЛЕЦ — файл создан для проверки поведения PKO",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле business_owner"
+            }
+          ]
+        },
+        "Признаки распознавания": {
+          "value": [
+            "POST /",
+            "POST /aris",
+            "POST /chats/",
+            "POST /chats/{chat_id}/artifacts/",
+            "POST /chats/{chat_id}/artifacts/combine/",
+            "POST /chats/{chat_id}/attached-artifact/{artifact_id}/",
+            "POST /chats/{chat_id}/messages/",
+            "POST /chats/{chat_id}/settings/",
+            "… всего входов: 65"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/process.py",
+              "line": 20,
+              "basis": "эндпоинт POST /"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/load_from_excel.py",
+              "line": 367,
+              "basis": "эндпоинт POST /aris"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 48,
+              "basis": "эндпоинт POST /chats/"
+            }
+          ]
+        }
+      },
+      "links": {},
+      "candidates": []
+    },
+    {
+      "id": "CP-POC-AI-AGENT-REDESAINER-001",
+      "kind": "JOURNEY",
+      "name": "Автономное проведение редизайна с расчётом и фиксацией финансового эффекта",
+      "fields": {
+        "Потребность": {
+          "value": "NEED-POC-AI-AGENT-REDESAINER-001",
+          "origin": "DECLARED",
+          "evidence": []
+        },
+        "Бизнес-смысл": {
+          "value": "Автономное проведение редизайна с расчётом и фиксацией финансового эффекта",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле journey_purpose"
+            }
+          ]
+        },
+        "Состояние «до»": {
+          "value": "Процесс выбран для улучшения, ответственный не назначен",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле initial_state"
+            }
+          ]
+        },
+        "Целевое состояние": {
+          "value": "Инициативы утверждены и переданы в исполнение, финансовый эффект рассчитан и зафиксирован в системах учёта, роли участников назначены автоматически.",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле target_state"
+            }
+          ]
+        },
+        "Критерии результата": {
+          "value": "Система автоматически проверяет согласованность артефактов между всеми шагами и блокирует противоречивый Executive Summary; результат выгружается в PowerPoint для спонсора; доступ к проектам разграничен ролевой моделью.",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле success_criteria"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": "ТЕСТОВЫЙ ВЛАДЕЛЕЦ — файл создан для проверки поведения PKO",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле business_owner"
+            }
+          ]
+        }
+      },
+      "links": {
+        "need": [
+          "NEED-POC-AI-AGENT-REDESAINER-001"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "BBB-001",
+      "kind": "BBB",
+      "name": "Граф исполнения LangGraph",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Граф исполнения LangGraph",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": [
+            "узел графа"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 26,
+              "basis": "узел графа «agent_decision»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 29,
+              "basis": "узел графа «continue_chat»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 27,
+              "basis": "узел графа «create_artifact»"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "node:agent_decision",
+            "node:continue_chat",
+            "node:create_artifact",
+            "node:faq_response",
+            "node:update_artifact",
+            "module:app-services",
+            "module:app-services-nodes"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 26,
+              "basis": "узел графа «agent_decision»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 29,
+              "basis": "узел графа «continue_chat»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 27,
+              "basis": "узел графа «create_artifact»"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "app/services"
+        ],
+        "owned_paths": [
+          "app/services",
+          "app/services/nodes"
+        ],
+        "stable_key": [
+          "app/services"
+        ]
+      },
+      "candidates": [
+        "module:app-services",
+        "module:app-services-nodes",
+        "node:agent_decision",
+        "node:continue_chat",
+        "node:create_artifact",
+        "node:faq_response",
+        "node:update_artifact"
+      ]
+    },
+    {
+      "id": "BBB-002",
+      "kind": "BBB",
+      "name": "Инструменты работы с артефактами",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Инструменты работы с артефактами",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": [
+            "инструмент агента"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/services, файлов: 10"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 17,
+              "basis": "инструмент агента «create_artifact»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 56,
+              "basis": "инструмент агента «update_artifact»"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": [
+            "create_artifact",
+            "update_artifact"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 17,
+              "basis": "инструмент агента «create_artifact»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 56,
+              "basis": "инструмент агента «update_artifact»"
+            }
+          ]
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:backend-services",
+            "tool:create_artifact",
+            "tool:update_artifact"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/services, файлов: 10"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 17,
+              "basis": "инструмент агента «create_artifact»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/services/tools.py",
+              "line": 56,
+              "basis": "инструмент агента «update_artifact»"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "backend/services"
+        ],
+        "owned_paths": [
+          "backend/services"
+        ],
+        "stable_key": [
+          "backend/services"
+        ]
+      },
+      "candidates": [
+        "module:backend-services",
+        "tool:create_artifact",
+        "tool:update_artifact"
+      ]
+    },
+    {
+      "id": "BBB-003",
+      "kind": "BBB",
+      "name": "Модуль «databases»",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Модуль «databases»",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/databases",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": "прямой вызов кода",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/databases/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/databases, файлов: 2"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:backend-databases"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/databases/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/databases, файлов: 2"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "backend/databases"
+        ],
+        "owned_paths": [
+          "backend/databases"
+        ],
+        "stable_key": [
+          "backend/databases"
+        ]
+      },
+      "candidates": [
+        "module:backend-databases"
+      ]
+    },
+    {
+      "id": "BBB-004",
+      "kind": "BBB",
+      "name": "Модуль «prompts»",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Модуль «prompts»",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/prompts",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": "прямой вызов кода",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/prompts/create_artifacts.py",
+              "line": 1,
+              "basis": "пакет app/prompts, файлов: 7"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:app-prompts"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/prompts/create_artifacts.py",
+              "line": 1,
+              "basis": "пакет app/prompts, файлов: 7"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "app/prompts"
+        ],
+        "owned_paths": [
+          "app/prompts"
+        ],
+        "stable_key": [
+          "app/prompts"
+        ]
+      },
+      "candidates": [
+        "module:app-prompts"
+      ]
+    },
+    {
+      "id": "BBB-005",
+      "kind": "BBB",
+      "name": "Модуль «schemas»",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Модуль «schemas»",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/schemas",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": "прямой вызов кода",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/schemas/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/schemas, файлов: 8"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:backend-schemas"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/schemas/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/schemas, файлов: 8"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "backend/schemas"
+        ],
+        "owned_paths": [
+          "backend/schemas"
+        ],
+        "stable_key": [
+          "backend/schemas"
+        ]
+      },
+      "candidates": [
+        "module:backend-schemas"
+      ]
+    },
+    {
+      "id": "BBB-006",
+      "kind": "BBB",
+      "name": "Модуль «settings»",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Модуль «settings»",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": "прямой вызов кода",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/__init__.py",
+              "line": 1,
+              "basis": "пакет app/settings, файлов: 3"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/settings, файлов: 3"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:app-settings",
+            "module:backend-settings"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/__init__.py",
+              "line": 1,
+              "basis": "пакет app/settings, файлов: 3"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/settings, файлов: 3"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "app/settings",
+          "backend/settings"
+        ],
+        "owned_paths": [
+          "app/settings",
+          "backend/settings"
+        ],
+        "stable_key": [
+          "app/settings"
+        ]
+      },
+      "candidates": [
+        "module:app-settings",
+        "module:backend-settings"
+      ]
+    },
+    {
+      "id": "BBB-007",
+      "kind": "BBB",
+      "name": "Приём запросов пользователя",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Приём запросов пользователя",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": [
+            "DELETE /files/{file_id}",
+            "DELETE /nodes/{node_key}/",
+            "DELETE /prompts/{prompt_name}",
+            "DELETE /subnodes/{subnode_key}/",
+            "DELETE /{artifact_id}/",
+            "DELETE /{process_id}/"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/files.py",
+              "line": 135,
+              "basis": "эндпоинт DELETE /files/{file_id}"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/nodes.py",
+              "line": 32,
+              "basis": "эндпоинт DELETE /nodes/{node_key}/"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/prompts.py",
+              "line": 71,
+              "basis": "эндпоинт DELETE /prompts/{prompt_name}"
+            }
+          ]
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": [
+            "HTTP API"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/files.py",
+              "line": 135,
+              "basis": "эндпоинт DELETE /files/{file_id}"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/nodes.py",
+              "line": 32,
+              "basis": "эндпоинт DELETE /nodes/{node_key}/"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/prompts.py",
+              "line": 71,
+              "basis": "эндпоинт DELETE /prompts/{prompt_name}"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "route:delete_-files-{file_id}",
+            "route:delete_-nodes-{node_key}-",
+            "route:delete_-prompts-{prompt_name}",
+            "route:delete_-subnodes-{subnode_key}-",
+            "route:delete_-{artifact_id}-",
+            "route:delete_-{process_id}-",
+            "route:get_-",
+            "route:get_-benchmark",
+            "route:get_-chats-{chat_id}-notifications-latest-",
+            "route:get_-files-",
+            "route:get_-files-uploads-{filename}",
+            "route:get_-files-{file_id}-download-",
+            "route:get_-health",
+            "route:get_-me",
+            "route:get_-nodes-",
+            "route:get_-nodes-{node_key}-subnodes",
+            "route:get_-prompts-",
+            "route:get_-prompts-default-{subnode_key}",
+            "route:get_-subnodes-",
+            "route:get_-suggestions"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/files.py",
+              "line": 135,
+              "basis": "эндпоинт DELETE /files/{file_id}"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/nodes.py",
+              "line": 32,
+              "basis": "эндпоинт DELETE /nodes/{node_key}/"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/prompts.py",
+              "line": 71,
+              "basis": "эндпоинт DELETE /prompts/{prompt_name}"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "backend/api"
+        ],
+        "owned_paths": [
+          "backend/api/endpoints"
+        ],
+        "stable_key": [
+          "backend/api"
+        ]
+      },
+      "candidates": [
+        "route:delete_-files-{file_id}",
+        "route:delete_-nodes-{node_key}-",
+        "route:delete_-prompts-{prompt_name}",
+        "route:delete_-subnodes-{subnode_key}-",
+        "route:delete_-{artifact_id}-",
+        "route:delete_-{process_id}-",
+        "route:get_-",
+        "route:get_-benchmark",
+        "route:get_-chats-{chat_id}-notifications-latest-",
+        "route:get_-files-",
+        "route:get_-files-uploads-{filename}",
+        "route:get_-files-{file_id}-download-",
+        "route:get_-health",
+        "route:get_-me",
+        "route:get_-nodes-",
+        "route:get_-nodes-{node_key}-subnodes",
+        "route:get_-prompts-",
+        "route:get_-prompts-default-{subnode_key}",
+        "route:get_-subnodes-",
+        "route:get_-suggestions",
+        "route:get_-users-",
+        "route:get_-users-{user_id}-",
+        "route:get_-{artifact_id}-",
+        "route:get_-{artifact_id}-versions-",
+        "route:get_-{artifact_id}-versions-{version_id}-",
+        "route:patch_-nodes-{node_key}-",
+        "route:patch_-prompts-{prompt_name}",
+        "route:patch_-subnodes-{subnode_key}-",
+        "route:post_-",
+        "route:post_-aris",
+        "route:post_-create-processes-",
+        "route:post_-files-upload-{process_id}-",
+        "route:post_-files-{chat_id}-",
+        "route:post_-gemba",
+        "route:post_-login-",
+        "route:post_-logout-",
+        "route:post_-nodes-",
+        "route:post_-pro-mnenie",
+        "route:post_-prompts-",
+        "route:post_-sberboost",
+        "route:post_-subnodes-",
+        "route:post_-upload-data-from-excel-",
+        "route:post_-voice-territories-benchmark",
+        "route:post_-voice-territories-suggestions",
+        "route:post_-{artifact_id}-revert-{version_id}-",
+        "route:put_-{artifact_id}-"
+      ]
+    },
+    {
+      "id": "BBB-008",
+      "kind": "BBB",
+      "name": "Приём и обработка сообщений",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Приём и обработка сообщений",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": [
+            "DELETE /chats/",
+            "DELETE /chats/{chat_id}/",
+            "GET /chats",
+            "GET /chats/{chat_id}/artifacts/",
+            "GET /chats/{chat_id}/files",
+            "GET /chats/{chat_id}/messages/"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 76,
+              "basis": "эндпоинт DELETE /chats/"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 58,
+              "basis": "эндпоинт DELETE /chats/{chat_id}/"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 37,
+              "basis": "эндпоинт GET /chats"
+            }
+          ]
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": [
+            "HTTP API"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/__init__.py",
+              "line": 1,
+              "basis": "пакет backend, файлов: 2"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/api, файлов: 3"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/api/endpoints, файлов: 18"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:backend",
+            "module:backend-api",
+            "module:backend-api-endpoints",
+            "route:delete_-chats-",
+            "route:delete_-chats-{chat_id}-",
+            "route:get_-chats",
+            "route:get_-chats-{chat_id}-artifacts-",
+            "route:get_-chats-{chat_id}-files",
+            "route:get_-chats-{chat_id}-messages-",
+            "route:get_-chats-{chat_id}-settings-",
+            "route:patch_-chats-{chat_id}-attached-files-",
+            "route:patch_-messages-{message_id}-",
+            "route:post_-chats-",
+            "route:post_-chats-{chat_id}-artifacts-",
+            "route:post_-chats-{chat_id}-artifacts-combine-",
+            "route:post_-chats-{chat_id}-attached-artifact-{artifact_id}-",
+            "route:post_-chats-{chat_id}-messages-",
+            "route:post_-chats-{chat_id}-settings-"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/__init__.py",
+              "line": 1,
+              "basis": "пакет backend, файлов: 2"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/api, файлов: 3"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/__init__.py",
+              "line": 1,
+              "basis": "пакет backend/api/endpoints, файлов: 18"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "backend",
+          "backend/api"
+        ],
+        "owned_paths": [
+          "backend",
+          "backend/api",
+          "backend/api/endpoints"
+        ],
+        "stable_key": [
+          "backend"
+        ]
+      },
+      "candidates": [
+        "module:backend",
+        "module:backend-api",
+        "module:backend-api-endpoints",
+        "route:delete_-chats-",
+        "route:delete_-chats-{chat_id}-",
+        "route:get_-chats",
+        "route:get_-chats-{chat_id}-artifacts-",
+        "route:get_-chats-{chat_id}-files",
+        "route:get_-chats-{chat_id}-messages-",
+        "route:get_-chats-{chat_id}-settings-",
+        "route:patch_-chats-{chat_id}-attached-files-",
+        "route:patch_-messages-{message_id}-",
+        "route:post_-chats-",
+        "route:post_-chats-{chat_id}-artifacts-",
+        "route:post_-chats-{chat_id}-artifacts-combine-",
+        "route:post_-chats-{chat_id}-attached-artifact-{artifact_id}-",
+        "route:post_-chats-{chat_id}-messages-",
+        "route:post_-chats-{chat_id}-settings-"
+      ]
+    },
+    {
+      "id": "BBB-009",
+      "kind": "BBB",
+      "name": "Сервисный слой",
+      "fields": {
+        "Бизнес-смысл": {
+          "value": "Сервисный слой",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services",
+              "line": 1,
+              "basis": "восстановлено по составу пакета"
+            }
+          ]
+        },
+        "Контракт входа": {
+          "value": "внутренний вызов",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Контракт выхода": {
+          "value": "не восстановлен статически",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Способы исполнения": {
+          "value": "прямой вызов кода",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nlp/__init__.py",
+              "line": 1,
+              "basis": "пакет app/services/nlp, файлов: 3"
+            }
+          ]
+        },
+        "Инструменты": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Собран из кандидатов": {
+          "value": [
+            "module:app-services-nlp"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nlp/__init__.py",
+              "line": 1,
+              "basis": "пакет app/services/nlp, файлов: 3"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "package": [
+          "app/services"
+        ],
+        "owned_paths": [
+          "app/services/nlp"
+        ],
+        "stable_key": [
+          "app/services"
+        ]
+      },
+      "candidates": [
+        "module:app-services-nlp"
+      ]
+    },
+    {
+      "id": "AP-CP-POC-AI-AGENT-REDESAINER-001",
+      "kind": "PROCESS",
+      "name": "Автономный процесс клиентского пути",
+      "fields": {
+        "Связанный клиентский путь": {
+          "value": "CP-POC-AI-AGENT-REDESAINER-001",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Условия запуска": {
+          "value": [
+            "POST /",
+            "POST /aris",
+            "POST /chats/",
+            "POST /chats/{chat_id}/artifacts/",
+            "POST /chats/{chat_id}/artifacts/combine/",
+            "POST /chats/{chat_id}/attached-artifact/{artifact_id}/",
+            "POST /chats/{chat_id}/messages/",
+            "POST /chats/{chat_id}/settings/",
+            "POST /create-processes/",
+            "POST /files/upload/{process_id}/",
+            "… всего входов: 65"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/process.py",
+              "line": 20,
+              "basis": "эндпоинт POST /"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/load_from_excel.py",
+              "line": 367,
+              "basis": "эндпоинт POST /aris"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 48,
+              "basis": "эндпоинт POST /chats/"
+            }
+          ]
+        },
+        "Правила сборки траектории": {
+          "value": [
+            "agent_decision",
+            "continue_chat",
+            "create_artifact",
+            "faq_response",
+            "update_artifact"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 26,
+              "basis": "узел графа «agent_decision»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 27,
+              "basis": "узел графа «create_artifact»"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 28,
+              "basis": "узел графа «update_artifact»"
+            }
+          ]
+        },
+        "Переходы": {
+          "value": [
+            "agent_decision→route_action",
+            "continue_chat→END",
+            "create_artifact→END",
+            "update_artifact→END"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 37,
+              "basis": "переход agent_decision → route_action"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 77,
+              "basis": "переход continue_chat → END"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 78,
+              "basis": "переход create_artifact → END"
+            }
+          ]
+        },
+        "Допустимые BBB": {
+          "value": [
+            "BBB-001",
+            "BBB-002",
+            "BBB-003",
+            "BBB-004",
+            "BBB-005",
+            "BBB-006",
+            "BBB-007",
+            "BBB-008",
+            "BBB-009"
+          ],
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Режим исполнения": {
+          "value": "AUTO",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле requested_mode"
+            }
+          ]
+        },
+        "Владелец": {
+          "value": "ТЕСТОВЫЙ ВЛАДЕЛЕЦ — файл создан для проверки поведения PKO",
+          "origin": "DECLARED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "external/intent_ai_advisor_overstated.yaml",
+              "line": null,
+              "basis": "подтверждено владельцем в поле business_owner"
+            }
+          ]
+        }
+      },
+      "links": {
+        "journey": [
+          "CP-POC-AI-AGENT-REDESAINER-001"
+        ],
+        "bbb": [
+          "BBB-001",
+          "BBB-002",
+          "BBB-003",
+          "BBB-004",
+          "BBB-005",
+          "BBB-006",
+          "BBB-007",
+          "BBB-008",
+          "BBB-009"
+        ],
+        "guardrail": [
+          "GRD-001",
+          "GRD-002",
+          "GRD-003",
+          "GRD-004",
+          "GRD-005"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-001",
+      "kind": "AO",
+      "name": "Вызов языковой модели",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-001",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Вызов языковой модели",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/file_processor.py",
+              "line": 54,
+              "basis": "вызов языковой модели"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nodes/agent_decision_node.py",
+              "line": 48,
+              "basis": "агент: в узле agent_decision вызывается chain.ainvoke для принятия решения"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "llm",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/file_processor.py",
+              "line": 54,
+              "basis": "вызов языковой модели"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nodes/agent_decision_node.py",
+              "line": 48,
+              "basis": "агент: в узле agent_decision вызывается chain.ainvoke для принятия решения"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "app/services"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/file_processor.py",
+              "line": 54,
+              "basis": "вызов языковой модели"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nodes/agent_decision_node.py",
+              "line": 48,
+              "basis": "агент: в узле agent_decision вызывается chain.ainvoke для принятия решения"
+            }
+          ]
+        },
+        "Участие в вердикте Gate": {
+          "value": "не участвует: механизм структурно не проверяется",
+          "origin": "INFERRED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nodes/agent_decision_node.py",
+              "line": 48,
+              "basis": "агент: в узле agent_decision вызывается chain.ainvoke для принятия решения"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 2,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/file_processor.py",
+              "line": 54,
+              "basis": "вызов языковой модели"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nodes/agent_decision_node.py",
+              "line": 48,
+              "basis": "агент: в узле agent_decision вызывается chain.ainvoke для принятия решения"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "llm|call|Вызов языковой модели"
+        ],
+        "bbb": [
+          "BBB-001"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-002",
+      "kind": "AO",
+      "name": "Изменение данных SQL-запросом",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-008",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Изменение данных SQL-запросом",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 133,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "sql",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "backend/alembic"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 4,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 133,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "sql|write|Изменение данных SQL-запросом"
+        ],
+        "bbb": [
+          "BBB-008"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-003",
+      "kind": "AO",
+      "name": "Обращение к внешней системе: LangChain",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-008",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Обращение к внешней системе: LangChain",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 13,
+              "basis": "импорт langchain"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "integration",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 13,
+              "basis": "импорт langchain"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "backend/api"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 13,
+              "basis": "импорт langchain"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 1,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/chats.py",
+              "line": 13,
+              "basis": "импорт langchain"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "integration|call|Обращение к внешней системе: LangChain"
+        ],
+        "bbb": [
+          "BBB-008"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-004",
+      "kind": "AO",
+      "name": "Обращение к внешней системе: LangGraph",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-001",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Обращение к внешней системе: LangGraph",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 3,
+              "basis": "импорт langgraph"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "integration",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 3,
+              "basis": "импорт langgraph"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "app/services"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 3,
+              "basis": "импорт langgraph"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 1,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/graphs.py",
+              "line": 3,
+              "basis": "импорт langgraph"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "integration|call|Обращение к внешней системе: LangGraph"
+        ],
+        "bbb": [
+          "BBB-001"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-005",
+      "kind": "AO",
+      "name": "Обращение к внешней системе: Phoenix tracing",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-008",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Обращение к внешней системе: Phoenix tracing",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 5,
+              "basis": "импорт phoenix"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "integration",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 5,
+              "basis": "импорт phoenix"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "backend"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 5,
+              "basis": "импорт phoenix"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 1,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 5,
+              "basis": "импорт phoenix"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "integration|call|Обращение к внешней системе: Phoenix tracing"
+        ],
+        "bbb": [
+          "BBB-008"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-006",
+      "kind": "AO",
+      "name": "Обращение к внешней системе: Реляционная БД через SQLAlchemy",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-001, BBB-008, BBB-003, BBB-002",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Обращение к внешней системе: Реляционная БД через SQLAlchemy",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/utils.py",
+              "line": 2,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 6,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 7,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 8,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 9,
+              "basis": "импорт sqlalchemy"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "orm",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/utils.py",
+              "line": 2,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 6,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 7,
+              "basis": "импорт sqlalchemy"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "app/services",
+            "backend/alembic",
+            "backend/api",
+            "backend/databases",
+            "backend/models",
+            "backend/services"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/utils.py",
+              "line": 2,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 6,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 7,
+              "basis": "импорт sqlalchemy"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 89,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/utils.py",
+              "line": 2,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 6,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 7,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 8,
+              "basis": "импорт sqlalchemy"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/env.py",
+              "line": 9,
+              "basis": "импорт sqlalchemy"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "orm|call|Обращение к внешней системе: Реляционная БД через SQLAlchemy"
+        ],
+        "bbb": [
+          "BBB-001",
+          "BBB-008",
+          "BBB-003",
+          "BBB-002"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "AO-007",
+      "kind": "AO",
+      "name": "Чтение данных SQL-запросом",
+      "fields": {
+        "Связанный BBB": {
+          "value": "BBB-008, BBB-002",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Проверяемый эффект": {
+          "value": "Чтение данных SQL-запросом",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 49,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/pro_mnenie.py",
+              "line": 20,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/sberboost.py",
+              "line": 21,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/voice_territories.py",
+              "line": 26,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/voice_territories.py",
+              "line": 138,
+              "basis": "SQL-запрос на чтение"
+            }
+          ]
+        },
+        "Механизм": {
+          "value": "sql",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 49,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/pro_mnenie.py",
+              "line": 20,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/sberboost.py",
+              "line": 21,
+              "basis": "SQL-запрос на чтение"
+            }
+          ]
+        },
+        "Компоненты": {
+          "value": [
+            "backend/alembic",
+            "backend/api",
+            "backend/services"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 49,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/pro_mnenie.py",
+              "line": 20,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/sberboost.py",
+              "line": 21,
+              "basis": "SQL-запрос на чтение"
+            }
+          ]
+        },
+        "Количество мест вызова": {
+          "value": 7,
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 49,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/pro_mnenie.py",
+              "line": 20,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/sberboost.py",
+              "line": 21,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/voice_territories.py",
+              "line": 26,
+              "basis": "SQL-запрос на чтение"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/api/endpoints/voice_territories.py",
+              "line": 138,
+              "basis": "SQL-запрос на чтение"
+            }
+          ]
+        },
+        "Повтор и компенсация": {
+          "value": "правило не найдено в коде",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Владелец и аудит": {
+          "value": null,
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "stable_key": [
+          "sql|read|Чтение данных SQL-запросом"
+        ],
+        "bbb": [
+          "BBB-008",
+          "BBB-002"
+        ]
+      },
+      "candidates": []
+    },
+    {
+      "id": "GRD-001",
+      "kind": "GUARDRAIL",
+      "name": "Ограничение времени исполнения (timeout)",
+      "fields": {
+        "Защищаемый инвариант": {
+          "value": "Ограничение времени исполнения",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Значение": {
+          "value": "timeout=120",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nlp/encoder.py",
+              "line": 5,
+              "basis": "timeout = 120"
+            }
+          ]
+        },
+        "Точка применения": {
+          "value": [
+            "app/services/nlp/encoder.py"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/services/nlp/encoder.py",
+              "line": 5,
+              "basis": "timeout = 120"
+            }
+          ]
+        },
+        "Ограничивающий эффект": {
+          "value": "LIMIT_MODE / LOG — из кода не восстановлен",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Подтверждён тестом": {
+          "value": "нет",
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "limit_key": [
+          "app/services|timeout"
+        ]
+      },
+      "candidates": [
+        "limit:app/services/nlp|timeout"
+      ]
+    },
+    {
+      "id": "GRD-002",
+      "kind": "GUARDRAIL",
+      "name": "Ограничение времени исполнения (timeout)",
+      "fields": {
+        "Защищаемый инвариант": {
+          "value": "Ограничение времени исполнения",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Значение": {
+          "value": "timeout=360 · timeout=60",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/base.py",
+              "line": 24,
+              "basis": "timeout = 60"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/base.py",
+              "line": 37,
+              "basis": "timeout = 360"
+            }
+          ]
+        },
+        "Точка применения": {
+          "value": [
+            "app/settings/base.py"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/base.py",
+              "line": 24,
+              "basis": "timeout = 60"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "app/settings/base.py",
+              "line": 37,
+              "basis": "timeout = 360"
+            }
+          ]
+        },
+        "Ограничивающий эффект": {
+          "value": "LIMIT_MODE / LOG — из кода не восстановлен",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Подтверждён тестом": {
+          "value": "нет",
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "limit_key": [
+          "app/settings|timeout"
+        ]
+      },
+      "candidates": [
+        "limit:app/settings|timeout"
+      ]
+    },
+    {
+      "id": "GRD-003",
+      "kind": "GUARDRAIL",
+      "name": "Ограничение времени исполнения — Модуль «backend»",
+      "fields": {
+        "Защищаемый инвариант": {
+          "value": "Ограничение времени исполнения",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Значение": {
+          "value": "timeout=12000 · timeout_graceful_shutdown=1000 · timeout_keep_alive=10000 · timeout_keep_alive=7000 · ws_ping_timeout=30",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 16,
+              "basis": "timeout = 12000"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 51,
+              "basis": "timeout_graceful_shutdown = 1000"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 16,
+              "basis": "timeout_keep_alive = 10000"
+            }
+          ]
+        },
+        "Точка применения": {
+          "value": [
+            "backend/main.py"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 16,
+              "basis": "timeout = 12000"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 51,
+              "basis": "timeout_graceful_shutdown = 1000"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/main.py",
+              "line": 16,
+              "basis": "timeout_keep_alive = 10000"
+            }
+          ]
+        },
+        "Ограничивающий эффект": {
+          "value": "LIMIT_MODE / LOG — из кода не восстановлен",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Подтверждён тестом": {
+          "value": "нет",
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "limit_key": [
+          "backend|timeout"
+        ]
+      },
+      "candidates": [
+        "limit:backend|timeout",
+        "limit:backend|timeout_graceful_shutdown",
+        "limit:backend|timeout_keep_alive",
+        "limit:backend|ws_ping_timeout"
+      ]
+    },
+    {
+      "id": "GRD-004",
+      "kind": "GUARDRAIL",
+      "name": "Ограничение времени исполнения (timeout)",
+      "fields": {
+        "Защищаемый инвариант": {
+          "value": "Ограничение времени исполнения",
+          "origin": "INFERRED",
+          "evidence": []
+        },
+        "Значение": {
+          "value": "timeout=360 · timeout=60",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/base.py",
+              "line": 30,
+              "basis": "timeout = 60"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/base.py",
+              "line": 43,
+              "basis": "timeout = 360"
+            }
+          ]
+        },
+        "Точка применения": {
+          "value": [
+            "backend/settings/base.py"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/base.py",
+              "line": 30,
+              "basis": "timeout = 60"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/settings/base.py",
+              "line": 43,
+              "basis": "timeout = 360"
+            }
+          ]
+        },
+        "Ограничивающий эффект": {
+          "value": "LIMIT_MODE / LOG — из кода не восстановлен",
+          "origin": "UNKNOWN",
+          "evidence": []
+        },
+        "Подтверждён тестом": {
+          "value": "нет",
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "limit_key": [
+          "backend/settings|timeout"
+        ]
+      },
+      "candidates": [
+        "limit:backend/settings|timeout"
+      ]
+    },
+    {
+      "id": "GRD-005",
+      "kind": "GUARDRAIL",
+      "name": "Только чтение данных (SELECT)",
+      "fields": {
+        "Защищаемый инвариант": {
+          "value": "Данные не изменяются автономным процессом",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Фактическое состояние": {
+          "value": "найден SQL, изменяющий данные: 4 мест (все 4 — в миграциях схемы)",
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Точка применения": {
+          "value": [
+            "backend/alembic/versions/6fb3906ea8f4_default_nodes.py"
+          ],
+          "origin": "OBSERVED",
+          "evidence": [
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 157,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 159,
+              "basis": "SQL, изменяющий данные"
+            },
+            {
+              "commit": "6a225969b0cc88d30208a00432dcb60e30c49dc2",
+              "path": "backend/alembic/versions/6fb3906ea8f4_default_nodes.py",
+              "line": 42,
+              "basis": "SQL, изменяющий данные"
+            }
+          ]
+        },
+        "Подтверждён тестом": {
+          "value": "нет",
+          "origin": "UNKNOWN",
+          "evidence": []
+        }
+      },
+      "links": {
+        "limit_key": [
+          "read_only"
+        ]
+      },
+      "candidates": []
+    }
+  ]
+}

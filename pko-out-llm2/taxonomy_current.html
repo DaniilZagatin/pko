@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Таксономия объектов управления</title>
+<style>
+:root {
+  --bg: #f8f9fb; --surface: #ffffff; --border: #e2e5ea;
+  --text: #1e2229; --text-secondary: #5e6879;
+  --accent: #2563eb; --accent-light: #eff4ff;
+  --green: #059669; --green-light: #ecfdf5;
+  --amber: #d97706; --amber-light: #fffbeb;
+  --red: #dc2626; --red-light: #fef2f2;
+  --purple: #7c3aed; --purple-light: #f5f3ff;
+  --cyan: #0891b2; --cyan-light: #ecfeff;
+  --pink: #db2777; --pink-light: #fdf2f8;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem 1rem;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+.header { text-align: center; padding: 2rem 0 2.5rem; }
+.header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+.header .subtitle { color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem; }
+.badge {
+  display: inline-block; background: var(--accent-light); color: var(--accent);
+  font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.75rem; border-radius: 999px;
+  margin-top: 0.5rem; letter-spacing: 0.02em;
+}
+.badge-warn { background: var(--amber-light); color: var(--amber); }
+.badge-danger { background: var(--red-light); color: var(--red); }
+.meta-bar {
+  display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+  padding: 1rem 1.5rem; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 1.5rem; font-size: 0.85rem;
+}
+.meta-item { display: flex; align-items: center; gap: 0.4rem; }
+.meta-label { color: var(--text-secondary); }
+.meta-value { font-weight: 600; }
+.section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 1.5rem; overflow: hidden;
+}
+.section-header {
+  padding: 1rem 1.5rem; display: flex; align-items: center; gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-header .icon {
+  width: 36px; height: 36px; border-radius: 8px; display: flex;
+  align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
+}
+.section-header h2 { font-size: 1.05rem; font-weight: 600; flex: 1; }
+.section-header .count {
+  font-size: 0.8rem; color: var(--text-secondary); background: var(--bg);
+  padding: 0.15rem 0.6rem; border-radius: 999px;
+}
+.section-body { padding: 1.5rem; }
+.tag {
+  display: inline-block; font-size: 0.75rem; font-weight: 600;
+  padding: 0.15rem 0.5rem; border-radius: 4px; margin-right: 0.25rem;
+}
+.tag-need { background: var(--accent-light); color: var(--accent); }
+.tag-cp { background: var(--green-light); color: var(--green); }
+.tag-ap { background: var(--purple-light); color: var(--purple); }
+.tag-bbb { background: var(--amber-light); color: var(--amber); }
+.tag-ao { background: var(--cyan-light); color: var(--cyan); }
+.tag-grd { background: var(--pink-light); color: var(--pink); }
+.obj-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.obj-table th {
+  text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; font-size: 0.8rem;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary);
+  border-bottom: 2px solid var(--border);
+}
+.obj-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.obj-table tr:last-child td { border-bottom: none; }
+.obj-table .id-cell { font-weight: 600; white-space: nowrap; font-size: 0.82rem; }
+.obj-table .desc-cell { color: var(--text-secondary); }
+.origin {
+  display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+  padding: 0.05rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; white-space: nowrap;
+}
+.origin-accent { background: var(--accent-light); color: var(--accent); }
+.origin-green { background: var(--green-light); color: var(--green); }
+.origin-amber { background: var(--amber-light); color: var(--amber); }
+.origin-red { background: var(--red-light); color: var(--red); }
+.origin-purple { background: var(--purple-light); color: var(--purple); }
+.evidence { display: block; margin-top: 0.35rem; font-size: 0.78rem; color: var(--text-secondary); }
+.evidence code { background: var(--bg); padding: 0.05rem 0.3rem; border-radius: 3px; }
+.evidence-row { padding: 0.1rem 0; }
+.evidence-where {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem;
+  color: var(--text-muted, #98a2b3); white-space: nowrap;
+}
+.evidence-more { font-style: italic; opacity: 0.8; }
+.gap-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.gap-item {
+  padding: 0.6rem 0.9rem; background: var(--amber-light); border-radius: 8px;
+  font-size: 0.85rem; color: #7c4a03;
+}
+.footer {
+  text-align: center; color: var(--text-secondary); font-size: 0.8rem;
+  padding: 2rem 0 1rem; border-top: 1px solid var(--border); margin-top: 0.5rem;
+}
+@media (max-width: 768px) {
+  .obj-table th, .obj-table td { padding: 0.5rem; }
+  .meta-bar { flex-direction: column; align-items: center; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Таксономия объектов управления</h1>
+    <div class="subtitle">poc-ai-agent-redesainer · восстановлено по коду</div>
+    <div class="badge">Стандарт автономного процесса v1.1 · версия current</div>
+  </div>
+<div class="meta-bar"><div class="meta-item"><span class="meta-label">Репозиторий:</span><span class="meta-value">poc-ai-agent-redesainer</span></div><div class="meta-item"><span class="meta-label">Ветка:</span><span class="meta-value">master</span></div><div class="meta-item"><span class="meta-label">Версия:</span><span class="meta-value">current</span></div><div class="meta-item"><span class="meta-label">Коммит:</span><span class="meta-value">6a225969</span></div><div class="meta-item"><span class="meta-label">Дата коммита:</span><span class="meta-value">2025-12-16</span></div><div class="meta-item"><span class="meta-label">Покрытие анализа:</span><span class="meta-value">85%</span></div></div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">≡</div>
+      <h2>Краткий обзор</h2>
+    </div>
+    <div class="section-body"><div style="font-size:0.92rem;">Система poc-ai-agent-redesainer (коммит 6a225969, версия current) — автономный агент на базе графа исполнения LangGraph, который самостоятельно проводит редизайн клиентского пути от выбора процесса до утверждённых инициатив с расчётом финансового эффекта и списанием бюджета на утверждённые мероприятия; режим исполнения процесса — AUTO, владельцем результата указан тестовый владелец, созданный для проверки поведения PKO. Доля неустановленных полей составляет 0.316 при покрытии 105 из 123 файлов (0.854): у всех девяти блоков BBB контракт выхода не восстановлен статически, инструменты не установлены у восьми из девяти, у четырёх ограничений GUARDRAIL из пяти ограничивающий эффект не восстановлен из кода, и ни одно из пяти ограничений не подтверждено тестом. Достоверно известно: система содержит семь архитектурных объектов — вызов языковой модели (2 места, не участвует в вердикте Gate), изменение данных SQL-запросом (4 места в миграциях), обращения к LangChain, LangGraph, Phoenix tracing и реляционной БД через SQLAlchemy (89 мест), чтение данных SQL-запросом (7 мест); правила повтора и компенсации не найдены в коде для всех объектов, у которых это поле присутствует. Главные пробелы: отсутствует отчёт о тестах (JUnit XML), из-за чего ни одно ограничение не может получить статус «подтверждено тестом» и статус всех пяти ограничений не выше OBSERVED; инвариант «только чтение» не выполняется — найден SQL, изменяющий данные в 4 местах (точка применения — backend/alembic/versions/6fb3906ea8f4_default_nodes.py). Статический разбор не покрывает 42 файла прикладного кода (.js, .ts, .tsx) и 57 файлов вне периметра первой версии (*.css, *.js, *.svg, *.ts, *.tsx), фронтенд не разбирается; наблюдения по непокрытым файлам получены только агентом и не подтверждены разбором синтаксиса. Агентом отброшено 3 факта без подтверждения ссылкой, принято 4 факта из разведки со ссылкой на строку кода, 3 находки совпали со статическим разбором и не учтены повторно, подключены паки промпта agents, data, web, а 1 наблюдение вне вердикта Gate (механизм llm) не имеет структурной проверки и в решении о допуске не участвует.</div></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">1</div>
+      <h2>Потребность клиента</h2>
+      <span class="count">1</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>NEED-POC-AI-AGENT-REDESAINER-001</td><td>Автономный редизайн клиентских путей и процессов</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Система самостоятельно проводит редизайн клиентского пути от выбора процесса до утверждённых инициатив, включая расчёт финансового эффекта и списание бюджета на утверждённые мероприятия.
+Аналитик подключается только для приёмки результата.<span class="origin origin-purple">заявлено владельцем</span><div class="evidence"><div class="evidence-row">подтверждено владельцем в поле business_meaning <span class="evidence-where" title="external/intent_ai_advisor_overstated.yaml">external/intent_ai_advisor_overstated.yaml</span></div></div><br><strong>Подтверждённая потребность:</strong> NEED-DPSS-REDESIGN-001<span class="origin origin-purple">заявлено владельцем</span><div class="evidence"><div class="evidence-row">подтверждено владельцем в поле confirmed_need_id <span class="evidence-where" title="external/intent_ai_advisor_overstated.yaml">external/intent_ai_advisor_overstated.yaml</span></div></div><br><strong>Клиент:</strong> Аналитик ДПСС, спонсор редизайна, финансовый контролёр<span class="origin origin-purple">заявлено владельцем</span><div class="evidence"><div class="evidence-row">подтверждено владельцем в поле client <span class="evidence-where" title="external/intent_ai_advisor_overstated.yaml">external/intent_ai_advisor_overstated.yaml</span></div></div></td><td></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--green-light);color:var(--green);">2</div>
+      <h2>Клиентские пути</h2>
+      <span class="count">1</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>CP-POC-AI-AGENT-REDESAINER-001</td><td>Автономное проведение редизайна с расчётом и фиксацией финансового эффекта</td><td class='desc-cell'><strong>Потребность:</strong> NEED-POC-AI-AGENT-REDESAINER-001<span class="origin origin-purple">заявлено владельцем</span><br><strong>Бизнес-смысл:</strong> Автономное проведение редизайна с расчётом и фиксацией финансового эффекта<span class="origin origin-purple">заявлено владельцем</span><div class="evidence"><div class="evidence-row">подтверждено владельцем в поле journey_purpose <span class="evidence-where" title="external/intent_ai_advisor_overstated.yaml">external/intent_ai_advisor_overstated.yaml</span></div></div><br><strong>Состояние «до»:</strong> Процесс выбран для улучшения, ответственный не назначен<span class="origin origin-purple">заявлено владельцем</span><div class="evidence"><div class="evidence-row">подтверждено владельцем в поле initial_state <span class="evidence-where" title="external/intent_ai_advisor_overstated.yaml">external/intent_ai_advisor_overstated.yaml</span></div></div></td><td><span class="tag tag-need">NEED-POC-AI-AGENT-REDESAINER-001</span></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--purple-light);color:var(--purple);">3</div>
+      <h2>Автономные процессы</h2>
+      <span class="count">1</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>AP-CP-POC-AI-AGENT-REDESAINER-001</td><td>Автономный процесс клиентского пути</td><td class='desc-cell'><strong>Связанный клиентский путь:</strong> CP-POC-AI-AGENT-REDESAINER-001<span class="origin origin-amber">вывод агента</span><br><strong>Условия запуска:</strong> POST / · POST /aris · POST /chats/ · POST /chats/{chat_id}/artifacts/ · POST /chats/{chat_id}/artifacts/combine/ · POST /chats/{chat_id}/attached-artifact/{artifact_id}/ · POST /chats/{chat_id}/messages/ · POST /chats/{chat_id}/settings/ · POST /create-processes/ · POST /files/upload/{process_id}/ · … всего входов: 65<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">эндпоинт POST / <span class="evidence-where" title="backend/api/endpoints/process.py:20">backend/api/endpoints/process.py:20</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Правила сборки траектории:</strong> agent_decision · continue_chat · create_artifact · faq_response · update_artifact<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">узел графа «agent_decision» <span class="evidence-where" title="app/services/graphs.py:26">app/services/graphs.py:26</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td><span class="tag tag-cp">CP-POC-AI-AGENT-REDESAINER-001</span> <span class="tag tag-bbb">BBB-001</span> <span class="tag tag-bbb">BBB-002</span> <span class="tag tag-bbb">BBB-003</span> <span class="tag tag-bbb">BBB-004</span> <span class="tag tag-bbb">BBB-005</span> <span class="tag tag-bbb">BBB-006</span> <span class="tag tag-bbb">BBB-007</span> <span class="tag tag-bbb">BBB-008</span> <span class="tag tag-bbb">BBB-009</span> <span class="tag tag-grd">GRD-001</span> <span class="tag tag-grd">GRD-002</span> <span class="tag tag-grd">GRD-003</span> <span class="tag tag-grd">GRD-004</span> <span class="tag tag-grd">GRD-005</span></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--amber-light);color:var(--amber);">4</div>
+      <h2>BBB — Business Building Blocks</h2>
+      <span class="count">9</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>BBB-001</td><td>Граф исполнения LangGraph</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Граф исполнения LangGraph<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="app/services:1">app/services:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-002</td><td>Инструменты работы с артефактами</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Инструменты работы с артефактами<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="backend/services:1">backend/services:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-003</td><td>Модуль «databases»</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Модуль «databases»<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="backend/databases:1">backend/databases:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-004</td><td>Модуль «prompts»</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Модуль «prompts»<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="app/prompts:1">app/prompts:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-005</td><td>Модуль «schemas»</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Модуль «schemas»<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="backend/schemas:1">backend/schemas:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-006</td><td>Модуль «settings»</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Модуль «settings»<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="app/settings:1">app/settings:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-007</td><td>Приём запросов пользователя</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Приём запросов пользователя<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="backend/api:1">backend/api:1</span></div></div><br><strong>Контракт входа:</strong> DELETE /files/{file_id} · DELETE /nodes/{node_key}/ · DELETE /prompts/{prompt_name} · DELETE /subnodes/{subnode_key}/ · DELETE /{artifact_id}/ · DELETE /{process_id}/<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">эндпоинт DELETE /files/{file_id} <span class="evidence-where" title="backend/api/endpoints/files.py:135">backend/api/endpoints/files.py:135</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-008</td><td>Приём и обработка сообщений</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Приём и обработка сообщений<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="backend:1">backend:1</span></div></div><br><strong>Контракт входа:</strong> DELETE /chats/ · DELETE /chats/{chat_id}/ · GET /chats · GET /chats/{chat_id}/artifacts/ · GET /chats/{chat_id}/files · GET /chats/{chat_id}/messages/<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">эндпоинт DELETE /chats/ <span class="evidence-where" title="backend/api/endpoints/chats.py:76">backend/api/endpoints/chats.py:76</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr><tr><td class='id-cell'>BBB-009</td><td>Сервисный слой</td><td class='desc-cell'><strong>Бизнес-смысл:</strong> Сервисный слой<span class="origin origin-amber">вывод агента</span><div class="evidence"><div class="evidence-row">восстановлено по составу пакета <span class="evidence-where" title="app/services:1">app/services:1</span></div></div><br><strong>Контракт входа:</strong> внутренний вызов<span class="origin origin-amber">вывод агента</span><br><strong>Контракт выхода:</strong> не восстановлен статически<span class="origin origin-red">не установлено</span></td><td></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--cyan-light);color:var(--cyan);">5</div>
+      <h2>Атомарные операции</h2>
+      <span class="count">7</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>AO-001</td><td>Вызов языковой модели</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-001<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Вызов языковой модели<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">вызов языковой модели <span class="evidence-where" title="app/services/file_processor.py:54">app/services/file_processor.py:54</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div><br><strong>Механизм:</strong> llm<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">вызов языковой модели <span class="evidence-where" title="app/services/file_processor.py:54">app/services/file_processor.py:54</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div></td><td><span class="tag tag-bbb">BBB-001</span></td></tr><tr><td class='id-cell'>AO-002</td><td>Изменение данных SQL-запросом</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-008<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Изменение данных SQL-запросом<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL, изменяющий данные <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157</span></div><div class="evidence-more">и ещё 3 подтверждени(я)</div></div><br><strong>Механизм:</strong> sql<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL, изменяющий данные <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td><span class="tag tag-bbb">BBB-008</span></td></tr><tr><td class='id-cell'>AO-003</td><td>Обращение к внешней системе: LangChain</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-008<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Обращение к внешней системе: LangChain<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт langchain <span class="evidence-where" title="backend/api/endpoints/chats.py:13">backend/api/endpoints/chats.py:13</span></div></div><br><strong>Механизм:</strong> integration<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт langchain <span class="evidence-where" title="backend/api/endpoints/chats.py:13">backend/api/endpoints/chats.py:13</span></div></div></td><td><span class="tag tag-bbb">BBB-008</span></td></tr><tr><td class='id-cell'>AO-004</td><td>Обращение к внешней системе: LangGraph</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-001<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Обращение к внешней системе: LangGraph<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт langgraph <span class="evidence-where" title="app/services/graphs.py:3">app/services/graphs.py:3</span></div></div><br><strong>Механизм:</strong> integration<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт langgraph <span class="evidence-where" title="app/services/graphs.py:3">app/services/graphs.py:3</span></div></div></td><td><span class="tag tag-bbb">BBB-001</span></td></tr><tr><td class='id-cell'>AO-005</td><td>Обращение к внешней системе: Phoenix tracing</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-008<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Обращение к внешней системе: Phoenix tracing<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт phoenix <span class="evidence-where" title="backend/main.py:5">backend/main.py:5</span></div></div><br><strong>Механизм:</strong> integration<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт phoenix <span class="evidence-where" title="backend/main.py:5">backend/main.py:5</span></div></div></td><td><span class="tag tag-bbb">BBB-008</span></td></tr><tr><td class='id-cell'>AO-006</td><td>Обращение к внешней системе: Реляционная БД через SQLAlchemy</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-001, BBB-008, BBB-003, BBB-002<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Обращение к внешней системе: Реляционная БД через SQLAlchemy<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт sqlalchemy <span class="evidence-where" title="app/services/utils.py:2">app/services/utils.py:2</span></div><div class="evidence-more">и ещё 4 подтверждени(я)</div></div><br><strong>Механизм:</strong> orm<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">импорт sqlalchemy <span class="evidence-where" title="app/services/utils.py:2">app/services/utils.py:2</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td><span class="tag tag-bbb">BBB-001</span> <span class="tag tag-bbb">BBB-008</span> <span class="tag tag-bbb">BBB-003</span> <span class="tag tag-bbb">BBB-002</span></td></tr><tr><td class='id-cell'>AO-007</td><td>Чтение данных SQL-запросом</td><td class='desc-cell'><strong>Связанный BBB:</strong> BBB-008, BBB-002<span class="origin origin-amber">вывод агента</span><br><strong>Проверяемый эффект:</strong> Чтение данных SQL-запросом<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL-запрос на чтение <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:49">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:49</span></div><div class="evidence-more">и ещё 4 подтверждени(я)</div></div><br><strong>Механизм:</strong> sql<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL-запрос на чтение <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:49">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:49</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td><span class="tag tag-bbb">BBB-008</span> <span class="tag tag-bbb">BBB-002</span></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--pink-light);color:var(--pink);">6</div>
+      <h2>Guardrails (ограничения исполнения)</h2>
+      <span class="count">5</span>
+    </div>
+    <div class="section-body"><table class='obj-table'><thead><tr><th>ID</th><th>Название</th><th>Основные поля</th><th>Связи</th></tr></thead><tbody><tr><td class='id-cell'>GRD-001</td><td>Ограничение времени исполнения (timeout)</td><td class='desc-cell'><strong>Защищаемый инвариант:</strong> Ограничение времени исполнения<span class="origin origin-amber">вывод агента</span><br><strong>Значение:</strong> timeout=120<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 120 <span class="evidence-where" title="app/services/nlp/encoder.py:5">app/services/nlp/encoder.py:5</span></div></div><br><strong>Точка применения:</strong> app/services/nlp/encoder.py<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 120 <span class="evidence-where" title="app/services/nlp/encoder.py:5">app/services/nlp/encoder.py:5</span></div></div></td><td></td></tr><tr><td class='id-cell'>GRD-002</td><td>Ограничение времени исполнения (timeout)</td><td class='desc-cell'><strong>Защищаемый инвариант:</strong> Ограничение времени исполнения<span class="origin origin-amber">вывод агента</span><br><strong>Значение:</strong> timeout=360 · timeout=60<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 60 <span class="evidence-where" title="app/settings/base.py:24">app/settings/base.py:24</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div><br><strong>Точка применения:</strong> app/settings/base.py<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 60 <span class="evidence-where" title="app/settings/base.py:24">app/settings/base.py:24</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div></td><td></td></tr><tr><td class='id-cell'>GRD-003</td><td>Ограничение времени исполнения — Модуль «backend»</td><td class='desc-cell'><strong>Защищаемый инвариант:</strong> Ограничение времени исполнения<span class="origin origin-amber">вывод агента</span><br><strong>Значение:</strong> timeout=12000 · timeout_graceful_shutdown=1000 · timeout_keep_alive=10000 · timeout_keep_alive=7000 · ws_ping_timeout=30<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 12000 <span class="evidence-where" title="backend/main.py:16">backend/main.py:16</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Точка применения:</strong> backend/main.py<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 12000 <span class="evidence-where" title="backend/main.py:16">backend/main.py:16</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td></td></tr><tr><td class='id-cell'>GRD-004</td><td>Ограничение времени исполнения (timeout)</td><td class='desc-cell'><strong>Защищаемый инвариант:</strong> Ограничение времени исполнения<span class="origin origin-amber">вывод агента</span><br><strong>Значение:</strong> timeout=360 · timeout=60<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 60 <span class="evidence-where" title="backend/settings/base.py:30">backend/settings/base.py:30</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div><br><strong>Точка применения:</strong> backend/settings/base.py<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">timeout = 60 <span class="evidence-where" title="backend/settings/base.py:30">backend/settings/base.py:30</span></div><div class="evidence-more">и ещё 1 подтверждени(я)</div></div></td><td></td></tr><tr><td class='id-cell'>GRD-005</td><td>Только чтение данных (SELECT)</td><td class='desc-cell'><strong>Защищаемый инвариант:</strong> Данные не изменяются автономным процессом<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL, изменяющий данные <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Фактическое состояние:</strong> найден SQL, изменяющий данные: 4 мест (все 4 — в миграциях схемы)<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL, изменяющий данные <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div><br><strong>Точка применения:</strong> backend/alembic/versions/6fb3906ea8f4_default_nodes.py<span class="origin origin-accent">найдено в коде</span><div class="evidence"><div class="evidence-row">SQL, изменяющий данные <span class="evidence-where" title="backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157">backend/alembic/versions/6fb3906ea8f4_default_nodes.py:157</span></div><div class="evidence-more">и ещё 2 подтверждени(я)</div></div></td><td></td></tr></tbody></table></div>
+  </div>
+
+
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--amber-light);color:var(--amber);">7</div>
+      <h2>Пробелы и ограничения анализа</h2>
+      <span class="count">15</span>
+    </div>
+    <div class="section-body"><div class="gap-list"><div class="gap-item">Нет готового отчёта о тестах (JUnit XML): ни одно ограничение не может получить статус «подтверждено тестом».</div><div class="gap-item">Найден SQL, изменяющий данные (4 мест, все 4 — в миграциях схемы): инвариант «только чтение» не выполняется.</div><div class="gap-item">Не анализировались: *.tsx (20), *.ts (20), *.svg (8), *.css (7), *.gitignore (4)</div><div class="gap-item">Вне периметра первой версии — 57 файл(ов) (*.css, *.js, *.svg, *.ts, *.tsx): покрытие считается по backend-периметру, фронтенд статически не разбирается.</div><div class="gap-item">WARN [GRD-001] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED</div><div class="gap-item">WARN [GRD-002] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED</div><div class="gap-item">WARN [GRD-003] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED</div><div class="gap-item">WARN [GRD-004] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED</div><div class="gap-item">WARN [GRD-005] GUARDRAIL_NOT_TESTED: ограничение не подтверждено негативным тестом — статус не выше OBSERVED</div><div class="gap-item">Статический разбор не покрывает 42 файл(ов) прикладного кода (.js, .ts, .tsx): наблюдения по ним получены только агентом и не подтверждены разбором синтаксиса.</div><div class="gap-item">Агент: отброшено фактов без подтверждения ссылкой — 3</div><div class="gap-item">Агент: 3 находок совпали со статическим разбором по смыслу и строке и не были учтены повторно</div><div class="gap-item">Агент: принято фактов из разведки — 4 (каждый со ссылкой на строку кода, проверенной по конструкции)</div><div class="gap-item">Агент: наблюдений вне вердикта Gate — 1 (механизмы: llm); структурной проверки для них нет, в решении о допуске они не участвуют</div><div class="gap-item">Агент: подключены паки промпта — agents, data, web</div></div></div>
+  </div>
+
+  <div class="footer">Сформировано PKO по коммиту 6a225969 · фактов: 436 · доля неустановленных полей: 32%</div>
+</div>
+</body>
+</html>

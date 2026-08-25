@@ -14,9 +14,11 @@ PKO не запускает тесты анализируемого проект
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pko.extractors.base import Fact, Tree, is_vendor
+from pko.util.sources import portable_source, unavailable_source
 
 NEGATIVE_MARKERS = ("negative", "invalid", "forbidden", "denied", "reject", "fail",
                     "error", "readonly", "read_only", "guard", "limit", "timeout")
@@ -25,6 +27,14 @@ NEGATIVE_MARKERS = ("negative", "invalid", "forbidden", "denied", "reject", "fai
 PASSED = "passed"
 FAILED = "failed"
 SKIPPED = "skipped"
+
+
+@dataclass
+class JunitLoad:
+    """Результат чтения внешнего JUnit вместе с безопасной provenance."""
+
+    source: str
+    facts: list[Fact] = field(default_factory=list)
 
 
 def extract(tree: Tree) -> list[Fact]:
@@ -57,13 +67,36 @@ def extract(tree: Tree) -> list[Fact]:
 
 def load_junit(report_path: str | Path) -> list[Fact]:
     """Разобрать готовый JUnit XML, переданный флагом --junit."""
+    return read_junit(report_path).facts
+
+
+def junit_source(report_path: str | Path) -> str:
+    """Переносимый ID JUnit для сообщений, где сам отчёт не загружается."""
     p = Path(report_path)
-    if not p.exists():
-        return []
     try:
-        root = ET.parse(p).getroot()
+        content = p.read_bytes()
+    except OSError:
+        return unavailable_source(p, "junit")
+    return portable_source(p, content)
+
+
+def read_junit(report_path: str | Path) -> JunitLoad:
+    """Прочитать и разобрать JUnit, не выпуская локальный путь наружу.
+
+    Файл читается один раз: ID и разобранные факты относятся к одним и тем же
+    байтам, поэтому concurrent replacement не может разнести provenance и
+    фактический отчёт по разным версиям.
+    """
+    p = Path(report_path)
+    try:
+        content = p.read_bytes()
+    except OSError:
+        return JunitLoad(source=unavailable_source(p, "junit"))
+    source = portable_source(p, content)
+    try:
+        root = ET.fromstring(content)
     except ET.ParseError:
-        return []
+        return JunitLoad(source=source)
 
     suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
     facts: list[Fact] = []
@@ -89,7 +122,7 @@ def load_junit(report_path: str | Path) -> list[Fact]:
                     "passed_cases": passed,
                     "skipped_cases": skipped,
                 },
-                path=str(p),
+                path=source,
                 line=1,
                 basis=(
                     f"отчёт pytest: {len(cases)} тестов, прошло {len(passed)}, "
@@ -97,7 +130,7 @@ def load_junit(report_path: str | Path) -> list[Fact]:
                 ),
             )
         )
-    return facts
+    return JunitLoad(source=source, facts=facts)
 
 
 def _case_outcome(case: ET.Element) -> dict[str, str]:
