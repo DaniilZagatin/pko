@@ -1,0 +1,9 @@
+# Точные версии, на которых проверялась работа pko progress (backend + frontend,
+# один процесс `pko serve`). `pyproject.toml` задаёт те же зависимости мягче
+# (`>=`) для `pip install -e .`; этот файл — для воспроизводимой установки
+# через `pip install -r requirements.txt`, в том числе в закрытом контуре с
+# заранее скачанными пакетами.
+python-pptx==1.0.2
+fastapi==0.141.1
+uvicorn==0.52.4
+python-multipart==0.0.32

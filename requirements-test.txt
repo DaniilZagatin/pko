@@ -1,0 +1,5 @@
+# Нужен только для `make test`/`make test-report` (tests/test_web_app.py
+# использует fastapi.testclient, которому в установленной версии starlette
+# требуется httpx2). Рантайму pko progress не нужен вообще.
+-r requirements.txt
+httpx2==2.12.0
