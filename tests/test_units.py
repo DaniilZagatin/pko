@@ -696,12 +696,15 @@ class ChatClientFailFastTest(unittest.TestCase):
         from pko.llm.client import ChatClient
         from pko.llm.registry import ModelSpec
 
-        spec = ModelSpec(role="writer", base_url="https://stub.local/v1",
+        spec = ModelSpec(role="matcher", base_url="https://stub.local/v1",
                          model="stub", api_key="x")
         client = ChatClient(spec=spec, cache_dir=tmp)
-        client.__class__._request = lambda self, m, p, b: payload
-        self.addCleanup(lambda: delattr(ChatClient, "_request")
-                        if "_request" in ChatClient.__dict__ else None)
+        # `_request` — настоящий метод класса, а не что-то добавленное тестом:
+        # `delattr` после теста удалял бы его насовсем для всех, кто идёт по
+        # алфавиту следом (нашёл `test_web_app.py`, который зависит от него).
+        original = ChatClient._request
+        ChatClient._request = lambda self, m, p, b: payload
+        self.addCleanup(setattr, ChatClient, "_request", original)
         return client
 
     def test_empty_content_raises_instead_of_returning_nothing(self):

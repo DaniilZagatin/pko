@@ -2,6 +2,7 @@
 
     pko progress plan.pptx ssh://git@<bitbucket-host>:7999/<project>/<repo>.git
     pko progress plan.pptx --repo-path ~/src/<repo> --no-fetch
+    pko serve   # веб-интерфейс на http://127.0.0.1:8000 — тот же пайплайн, без CLI
 
 Клон делается от вашего имени по SSH, зеркалом, без рабочего дерева. Отчёт о
 прогрессе (`progress_report.html`, `progress_model.json`) пишется в каталог
@@ -16,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
 from pko import __version__
@@ -26,12 +26,13 @@ from pko.git.repo import GitRepo
 from pko.git.url import parse_repo_url
 from pko.llm.registry import get_spec
 from pko.output.publisher import write_outputs
-from pko.progress.matcher import find_unclaimed_paths, match_plan
-from pko.progress.schema import ProgressModel
-from pko.progress.target_repo import load_target
+from pko.progress.pipeline import run_progress
+from pko.progress.target_repo import load_target, repo_name
 from pko.render.progress_report import render_progress_report
 
 DEFAULT_PROGRESS_OUT = Path("pko-progress-out")
+DEFAULT_SERVE_HOST = "127.0.0.1"
+DEFAULT_SERVE_PORT = 8000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,6 +68,12 @@ def _build_parser() -> argparse.ArgumentParser:
                           help="каталог для отчёта о прогрессе")
     progress.set_defaults(handler=cmd_progress)
 
+    serve = sub.add_parser("serve", help="поднять локальный веб-интерфейс")
+    serve.add_argument("--host", default=DEFAULT_SERVE_HOST,
+                       help=f"по умолчанию {DEFAULT_SERVE_HOST} — только эта машина")
+    serve.add_argument("--port", type=int, default=DEFAULT_SERVE_PORT)
+    serve.set_defaults(handler=cmd_serve)
+
     return parser
 
 
@@ -83,15 +90,13 @@ def _add_source_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--network-timeout", type=int, default=900)
 
 
-# --- команда -----------------------------------------------------------
+# --- команды -----------------------------------------------------------
 def cmd_progress(args: argparse.Namespace) -> int:
     """Сравнить PPTX-план команды с кодом репозитория и выпустить отчёт о прогрессе.
 
-    `python-pptx` устанавливается вместе с пакетом (`dependencies` в
-    `pyproject.toml`), но импорт `pptx_reader`/`plan_extract` всё равно
-    отложен до вызова этой команды — единственной в CLI, поэтому граница
-    условна, но привычка «тяжёлая зависимость не должна ломать --help» того
-    стоит.
+    Логика самого пайплайна — в `pko.progress.pipeline.run_progress`; её же
+    зовёт веб-эндпоинт (`pko.web.app`), чтобы CLI и веб не могли разойтись в
+    поведении. Здесь — только сборка входа, печать и запись на диск.
     """
     plan_path = Path(args.plan).expanduser()
     if not plan_path.exists():
@@ -107,48 +112,16 @@ def cmd_progress(args: argparse.Namespace) -> int:
                  "PKO_PLANNER_*/PKO_MATCHER_* отдельно.",
         )
 
-    try:
-        from pko.progress.pptx_reader import read_deck
-    except ImportError as exc:
-        raise PkoError(
-            "Не установлен python-pptx.",
-            hint="поставьте пакет: pip install python-pptx>=1.0",
-        ) from exc
-    from pko.progress.plan_extract import extract_plan
-
-    repo, repo_name = _open_repo(args)
+    repo, name = _open_repo(args)
     branch = args.branch or repo.default_branch()
     target = load_target(repo, branch)
-    print(f"Репозиторий: {repo_name} · ветка: {target.branch} · коммит {target.sha[:8]}")
-
+    print(f"Репозиторий: {name} · ветка: {target.branch} · коммит {target.sha[:8]}")
     print(f"План: {plan_path.name}")
-    slides = read_deck(plan_path)
-    plan_result = extract_plan(slides, planner)
-    for note in plan_result.notes:
-        print(f"  {note}")
-    if not plan_result.usable:
-        raise PkoError(
-            "Не удалось извлечь пункты плана из презентации.",
-            hint="проверьте текст слайдов; причина — в заметках выше",
-        )
-    print(f"Пунктов плана: {len(plan_result.items)}")
 
-    match_result = match_plan(plan_result.items, target.extraction, target.tree, matcher_spec)
-    for note in match_result.notes:
-        print(f"  {note}")
-
-    unclaimed = find_unclaimed_paths(target.extraction, match_result.verdicts)
-    generated_at = time.strftime("%Y-%m-%d %H:%M")
-    model = ProgressModel(
-        meta={
-            "repo": repo_name, "branch": target.branch, "commit": target.sha,
-            "plan_source": plan_path.name, "generated_at": generated_at,
-        },
-        items={item.id: item for item in plan_result.items},
-        verdicts=match_result.verdicts,
-        unclaimed=unclaimed,
-        gaps=plan_result.notes + match_result.notes,
-    )
+    model = run_progress(plan_path, name, target, planner, matcher_spec)
+    for gap in model.gaps:
+        print(f"  {gap}")
+    print(f"Пунктов плана: {len(model.items)}")
 
     files = {
         "progress-model": ("progress_model.json", model.to_json()),
@@ -161,6 +134,19 @@ def cmd_progress(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Поднять локальный веб-интерфейс. `uvicorn` импортируется здесь же —
+
+    `pko progress` не должен тянуть веб-стек ради своей работы, тот же
+    принцип, что и у отложенного импорта `python-pptx`.
+    """
+    import uvicorn
+
+    print(f"PKO progress: http://{args.host}:{args.port}")
+    uvicorn.run("pko.web.app:app", host=args.host, port=args.port)
+    return 0
+
+
 # --- вспомогательное -----------------------------------------------------
 def _open_repo(args: argparse.Namespace) -> tuple[GitRepo, str]:
     """Открыть репозиторий: по SSH-ссылке через зеркало или по локальному пути."""
@@ -169,7 +155,7 @@ def _open_repo(args: argparse.Namespace) -> tuple[GitRepo, str]:
         # и в ссылку на реализацию попадало бы пустое значение — `@<sha>` вместо
         # `repo@<sha>`, хотя точная ссылка и есть смысл отчёта.
         path = Path(args.repo_path).expanduser().resolve()
-        return GitRepo(path, timeout=args.network_timeout), _repo_name(path)
+        return GitRepo(path, timeout=args.network_timeout), repo_name(path)
 
     if not args.url:
         raise PkoError(
@@ -188,12 +174,6 @@ def _open_repo(args: argparse.Namespace) -> tuple[GitRepo, str]:
     action = "склонировано" if info.created else ("обновлено" if info.fetched else "без обновления")
     print(f"  зеркало {action}: {info.path}")
     return GitRepo(info.path, timeout=args.network_timeout), ref.repo
-
-
-def _repo_name(path: Path) -> str:
-    """Имя репозитория для ссылки на реализацию: без `.git` и никогда не пустое."""
-    name = path.name.removesuffix(".git")
-    return name or path.parent.name or "repo"
 
 
 if __name__ == "__main__":

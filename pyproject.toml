@@ -7,16 +7,30 @@ name = "pko"
 version = "0.1.0"
 description = "PKO progress — сравнение PPTX-плана команды с кодом репозитория"
 requires-python = ">=3.11"
-dependencies = ["python-pptx>=1.0"]
+dependencies = [
+    "python-pptx>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "python-multipart>=0.0.9",
+]
 
 [project.scripts]
 pko = "pko.cli:main"
+
+# httpx2 — не рантайм-зависимость самого pko, а то, что требует
+# `starlette.testclient` в `tests/test_web_app.py`. Без этой группы чистый
+# клон проходил бы `pip install -e .` и падал на первом же тесте веб-слоя.
+[project.optional-dependencies]
+test = ["httpx2"]
 
 [tool.pytest.ini_options]
 # Тесты написаны на unittest и запускаются как `make test`; эта секция нужна,
 # чтобы их подхватывал и pytest, если сборочный контур использует его.
 testpaths = ["tests"]
-pythonpath = ["src", "tests"]
+pythonpath = ["backend", "tests"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+# Бэкенд и фронтенд — раздельные каталоги верхнего уровня (см. app.py):
+# фронтенд не Python package data и в установку пакета не входит, ему это и
+# не нужно — `pko serve` читает `frontend/index.html` из корня репозитория.
+where = ["backend"]

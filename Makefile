@@ -1,7 +1,7 @@
 .PHONY: test test-verbose test-report fixture clean
 
 PYTHON ?= python3
-export PYTHONPATH := src
+export PYTHONPATH := backend
 
 # Единственная команда проверки — она же документирована в README и предназначена
 # для CI. Тестовый репозиторий создаётся автоматически, отдельный шаг не нужен.
@@ -21,5 +21,5 @@ fixture:
 	bash tests/make_fixture.sh
 
 clean:
-	rm -rf pko-progress-out reports build dist src/*.egg-info tests/fixtures/mini_repo
-	find src tests -name __pycache__ -type d -exec rm -rf {} +
+	rm -rf pko-progress-out reports build dist backend/*.egg-info tests/fixtures/mini_repo
+	find backend tests -name __pycache__ -type d -exec rm -rf {} +

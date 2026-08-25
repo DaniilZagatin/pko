@@ -12,6 +12,13 @@ PKO: код не публикуется и не уходит во внешние
 отчёте с `verified=False` и причиной, а вердикт `DONE`/`PARTIAL` без единой
 подтверждённой ссылки явно помечается негрунтованным (`ItemVerdict.is_grounded`),
 а не тихо принимается на слово модели.
+
+Свободный текст `explanation` — отдельная поверхность: `evidence` проверяется
+структурно, а прозу можно было опубликовать как есть, с любым выдуманным
+именем файла внутри предложения. `report.guard.check_text` (тот же анти-
+галлюцинационный guard, что и у писателя в исходном PKO) проверяет её на
+упоминания путей, которых нет в репозитории — нарушение не роняет вердикт,
+только заменяет объяснение нейтральной пометкой (`_guard_explanation`).
 """
 
 from __future__ import annotations
@@ -27,6 +34,7 @@ from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
 from pko.progress.schema import EvidenceRef, ItemVerdict, PlanItem, STATUSES, UnclaimedGroup
 from pko.progress.verify import verify_evidence
+from pko.report.guard import check_text
 
 _SYSTEM = (
     "Ты сравниваешь пункты плана команды с кандидатами кода из целевого репозитория "
@@ -107,6 +115,7 @@ def match_plan(
     verdicts: list[ItemVerdict] = []
     dropped = 0
     ungrounded = 0
+    rejected_explanations = 0
     seen_ids: set[str] = set()
     for raw_verdict in parsed:
         verdict = _validate_verdict(raw_verdict, known_ids, seen_ids, tree)
@@ -114,6 +123,8 @@ def match_plan(
             dropped += 1
             continue
         seen_ids.add(verdict.item_id)
+        if _guard_explanation(verdict, tree):
+            rejected_explanations += 1
         verdicts.append(verdict)
         if verdict.status in ("DONE", "PARTIAL") and not verdict.is_grounded:
             ungrounded += 1
@@ -134,6 +145,11 @@ def match_plan(
         notes.append(
             f"Вердиктов DONE/PARTIAL без единой подтверждённой ссылки на код: {ungrounded} — "
             "модель утверждает прогресс, но код это не показывает; нужна ручная проверка"
+        )
+    if rejected_explanations:
+        notes.append(
+            f"Объяснений отклонено сторожем текста (упоминали путь вне репозитория): "
+            f"{rejected_explanations} — сам вердикт и evidence это не затронуло"
         )
     return MatchResult(verdicts=verdicts, source="llm", notes=notes)
 
@@ -206,6 +222,27 @@ def _validate_verdict(
         ))
 
     return ItemVerdict(item_id=item_id, status=status, explanation=explanation, evidence=evidence)
+
+
+def _guard_explanation(verdict: ItemVerdict, tree: Tree) -> bool:
+    """Отклонить объяснение matcher'а, если оно упоминает путь вне репозитория.
+
+    Возвращает `True`, если объяснение заменено. `evidence` уже проверена
+    отдельно (`verify_evidence`) — эта проверка про свободный текст, который
+    иначе публиковался бы как есть с любым выдуманным именем файла внутри
+    предложения. `allowed_ids=set()` — намеренно: `ID_PATTERN` в
+    `report.guard` заточен под ID-схему Gate (`BBB-`/`AO-`/`NEED-`…), а не под
+    произвольные `item_id` пунктов плана, поэтому ссылку на несуществующий
+    пункт плана в прозе этот guard не ловит — только пути к файлам.
+    """
+    if not verdict.explanation:
+        return False
+    violations = check_text(verdict.explanation, allowed_ids=set(), allowed_paths=set(tree.files))
+    if not violations:
+        return False
+    reasons = "; ".join(v.render() for v in violations)
+    verdict.explanation = f"(объяснение отклонено сторожем: {reasons})"
+    return True
 
 
 def _parse(raw: str) -> list[dict] | None:

@@ -98,6 +98,38 @@ class MatcherTest(unittest.TestCase):
         self.assertFalse(verdict.is_grounded)
         self.assertIn("без единой подтверждённой ссылки", " ".join(result.notes))
 
+    def test_explanation_naming_a_nonexistent_file_is_rejected_but_evidence_kept(self):
+        # evidence подтверждена независимо; explanation при этом ссылается на
+        # файл, которого нет в репозитории — сторож должен убрать именно
+        # объяснение, не тронув вердикт и evidence.
+        response = json.dumps({"verdicts": [
+            {"item_id": "tasks-api", "status": "DONE",
+             "explanation": "Также реализовано в billing_service.py.",
+             "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
+                           "basis": "функция start_task ставит задачу в обработку"}]},
+        ]})
+        result = self._run(response)
+        verdict = result.verdicts[0]
+        # Причина отказа вправе называть отклонённый путь (как и `GuardViolation.render()`
+        # в остальном PKO) — отброшен именно исходный текст-утверждение, не упоминание пути.
+        self.assertIn("отклонено сторожем", verdict.explanation)
+        self.assertNotIn("Также реализовано в", verdict.explanation)
+        self.assertEqual(verdict.status, "DONE")
+        self.assertTrue(verdict.evidence[0].verified)
+        self.assertIn("Объяснений отклонено сторожем", " ".join(result.notes))
+
+    def test_explanation_naming_only_real_paths_is_kept(self):
+        response = json.dumps({"verdicts": [
+            {"item_id": "tasks-api", "status": "DONE",
+             "explanation": "Реализовано в backend/src/api/v1/router.py.",
+             "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
+                           "basis": "функция start_task ставит задачу в обработку"}]},
+        ]})
+        result = self._run(response)
+        verdict = result.verdicts[0]
+        self.assertIn("backend/src/api/v1/router.py", verdict.explanation)
+        self.assertNotIn("отклонено сторожем", verdict.explanation)
+
     def test_evidence_with_nonexistent_path_is_not_verified(self):
         response = json.dumps({"verdicts": [
             {"item_id": "tasks-api", "status": "DONE", "explanation": "x",
