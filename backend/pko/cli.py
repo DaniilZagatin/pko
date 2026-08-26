@@ -68,8 +68,8 @@ def _build_parser() -> argparse.ArgumentParser:
     progress.add_argument("--out", default=str(DEFAULT_PROGRESS_OUT),
                           help="каталог для отчёта о прогрессе")
     progress.add_argument("--max-steps", type=int, default=DEFAULT_MAX_STEPS,
-                          help=f"потолок шагов агента matcher на один пункт плана "
-                               f"(по умолчанию {DEFAULT_MAX_STEPS})")
+                          help=f"потолок шагов агента matcher на всю сессию (план + "
+                               f"сопоставление всех пунктов), по умолчанию {DEFAULT_MAX_STEPS}")
     progress.set_defaults(handler=cmd_progress)
 
     serve = sub.add_parser("serve", help="поднять локальный веб-интерфейс")
@@ -106,18 +106,15 @@ def cmd_progress(args: argparse.Namespace) -> int:
     if not plan_path.exists():
         raise PkoError(f"Файл плана не найден: {plan_path}", hint="проверьте путь к .pptx")
 
-    planner = get_spec("planner")
-    matcher_spec = get_spec("matcher")
-    if planner is None or matcher_spec is None:
+    spec = get_spec("matcher")
+    if spec is None:
         raise PkoError(
             "Не настроен LLM-доступ для пайплайна прогресса.",
             hint="задайте PKO_ASSEMBLER_BASE_URL/PKO_ASSEMBLER_MODEL/PKO_ASSEMBLER_API_KEY — "
-                 "роли planner/matcher используют его по умолчанию; либо настройте "
-                 "PKO_PLANNER_*/PKO_MATCHER_* отдельно.",
+                 "роль matcher использует его по умолчанию; либо настройте PKO_MATCHER_* отдельно.",
         )
     # reporter необязателен: без него сводного вывода не будет, но остальной
-    # отчёт соберётся как обычно — в отличие от planner/matcher, здесь не
-    # ошибка запуска.
+    # отчёт соберётся как обычно — в отличие от matcher, здесь не ошибка запуска.
     reporter = get_spec("reporter")
 
     repo, name = _open_repo(args)
@@ -127,7 +124,7 @@ def cmd_progress(args: argparse.Namespace) -> int:
     print(f"План: {plan_path.name}")
 
     model = run_progress(
-        plan_path, name, target, planner, matcher_spec,
+        plan_path, name, target, spec,
         max_steps=args.max_steps, reporter=reporter,
     )
     for gap in model.gaps:

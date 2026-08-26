@@ -59,14 +59,13 @@ async def api_progress(
     if not repo.strip():
         raise PkoError("Не указан репозиторий.", hint="SSH-ссылка или локальный путь")
 
-    planner = get_spec("planner")
-    matcher_spec = get_spec("matcher")
-    if planner is None or matcher_spec is None:
+    spec = get_spec("matcher")
+    if spec is None:
         raise PkoError(
             "Не настроен LLM-доступ для пайплайна прогресса.",
             hint="задайте PKO_ASSEMBLER_BASE_URL/PKO_ASSEMBLER_MODEL/PKO_ASSEMBLER_API_KEY "
-                 "перед запуском `pko serve` — роли planner/matcher используют его по "
-                 "умолчанию; либо настройте PKO_PLANNER_*/PKO_MATCHER_* отдельно.",
+                 "перед запуском `pko serve` — роль matcher использует его по умолчанию; "
+                 "либо настройте PKO_MATCHER_* отдельно.",
         )
     # Необязательная роль — без неё просто не будет сводного вывода в отчёте.
     reporter = get_spec("reporter")
@@ -77,7 +76,7 @@ async def api_progress(
 
         git_repo, name = open_repo_source(repo.strip(), branch=branch.strip() or None)
         target = load_target(git_repo, branch.strip() or None)
-        model = run_progress(plan_path, name, target, planner, matcher_spec, reporter=reporter)
+        model = run_progress(plan_path, name, target, spec, reporter=reporter)
 
     return JSONResponse({
         "html": render_progress_report(model),

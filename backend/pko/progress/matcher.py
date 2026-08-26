@@ -1,18 +1,29 @@
-"""Роль matcher: агент, который сам ищет по коду подтверждение пункту плана.
+"""Единый агент: за одну сессию выделяет пункты плана из презентации и
+сопоставляет их с кодом целевого репозитория.
 
-Презентации описывают бизнес-идеи и названия функциональности, а не код —
-заранее собранный список кандидатов (детерминированные факты экстракторов)
-почти никогда лексически не пересекается с этим языком. Поэтому здесь не
-единый batch-запрос по готовому списку, а отдельный агентный цикл на каждый
-пункт плана: модель сама решает, что посмотреть, через read-only инструменты
-`progress.agent_tools.ToolBox` (`list_files`/`read_file`/`search`), а не
-разбирает то, что нашли экстракторы.
+Раньше это были две разные сущности — нетулованная роль `planner` (один
+одноразовый вызов, читает готовый текст слайдов, отвечает JSON-списком
+пунктов) и агентная роль `matcher` (видит только то, что уже передал planner,
+и не может свериться с презентацией). Теперь это один и тот же tool-calling
+движок с одной и той же личностью: агенту в первом сообщении приходит текст
+всей презентации целиком, а `read_slides` (`progress.agent_tools.ToolBox`)
+даёт посмотреть её ещё раз, если по ходу расследования нужно свериться с
+формулировкой. Остальные инструменты — `list_files`/`read_file`/`search` — те
+же, что и раньше, без ограничения на число вызовов.
+
+Работа идёт по одному пункту плана за раз: агент собирает про пункт evidence
+инструментами, затем вызывает `submit_verdict` — и пункт с вердиктом
+проверяется кодом (`verify_evidence`/`_guard_explanation`) сразу же, не в
+конце сессии. Так агент переходит к следующему пункту, пока не вызовет
+`finish`. Это даёт устойчивость к обрыву: если бюджет шагов исчерпан
+до `finish`, в отчёт всё равно попадают уже отправленные и проверенные
+пункты, а не пропадает вся сессия целиком.
 
 Ни одна evidence-ссылка не публикуется без проверки: `progress.verify.verify_evidence`
 подтверждает её структурно (путь и строка существуют на этом коммите, рядом —
 слово из основания). Неподтверждённая ссылка не отбрасывается — остаётся в
 отчёте с `verified=False` и причиной, а вердикт `DONE`/`PARTIAL` без единой
-подтверждённой ссылки явно помечается негрунтованным (`ItemVerdict.is_grounded`),
+подтверждённой ссылки явно помечается негrounded (`ItemVerdict.is_grounded`),
 а не тихо принимается на слово агента.
 
 Свободный текст `explanation` — отдельная поверхность: `evidence` проверяется
@@ -25,7 +36,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -34,83 +44,140 @@ from pko.extractors.base import Tree
 from pko.extractors.runner import Extraction
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
-from pko.progress.agent_tools import TOOL_SCHEMAS, ToolBox
+from pko.progress.agent_tools import TOOL_SCHEMAS as REPO_TOOL_SCHEMAS, ToolBox
+from pko.progress.pptx_reader import Slide, render_slide
 from pko.progress.schema import EvidenceRef, ItemVerdict, PlanItem, STATUSES, UnclaimedGroup
 from pko.progress.verify import verify_evidence
 from pko.report.guard import check_text
 
-# Бюджет шагов агента на один пункт плана. Пунктов в плане обычно немного
-# (единицы-десятки), но при N пунктах это до N×DEFAULT_MAX_STEPS вызовов LLM
-# за прогон — сознательный компромисс между полнотой поиска и стоимостью,
-# настраиваемый снаружи (`run_progress(..., max_steps=...)`).
-DEFAULT_MAX_STEPS = 30
+# Бюджет шагов агента на всю сессию (выделение пунктов плана + сопоставление
+# всех пунктов с кодом), не на один пункт: пунктов в плане обычно немного
+# (единицы-десятки), но заранее их число неизвестно — агент сам решает, когда
+# закончить. Отправная точка для первого живого прогона на GLM, крутится
+# снаружи (`run_progress(..., max_steps=...)` / `--max-steps`).
+DEFAULT_MAX_STEPS = 60
 
 _AGENT_SYSTEM = (
-    "Ты — агент, который проверяет, реализован ли в репозитории конкретный пункт плана "
-    "команды. План описан бизнес-языком (идея, название функциональности), а не терминами "
-    "кода — не жди буквальных совпадений, подбирай ключевые слова и синонимы сам. "
-    "У тебя есть инструменты, только на чтение, по коду репозитория на конкретном коммите — "
-    "используй их через tool calling. Исследуй репозиторий и, когда достаточно уверен, дай "
-    "финальный ответ обычным текстом (не вызовом инструмента) — один JSON-объект: "
-    '{"status": "DONE"|"PARTIAL"|"NOT_STARTED"|"UNCLEAR", "explanation": "...", '
-    '"evidence": [{"path": "...", "line": N, "basis": "..."}]}. '
+    "Ты — агент, который в одной сессии разбирает план команды из презентации и "
+    "сопоставляет его с фактическим состоянием кода репозитория. Следующим сообщением "
+    "придёт текст всех слайдов презентации целиком, построчно (строка — фигуры, стоящие "
+    "визуально рядом; что именно означает строка, определяй по тексту, а не по номеру). "
+    "Инструментом read_slides можно посмотреть презентацию ещё раз, если понадобится "
+    "свериться с формулировкой — это не единственный способ её увидеть, а возможность "
+    "перечитать. План описан бизнес-языком (идея, название функциональности), а не "
+    "терминами кода — не жди буквальных совпадений, подбирай ключевые слова и синонимы сам.\n"
+    "Работай по одному пункту плана за раз: выдели пункт из текста слайдов, инструментами "
+    "list_files/read_file/search (можно вызывать сколько угодно раз) выясни, реализован ли "
+    "он, затем вызови submit_verdict с описанием пункта и вердиктом по нему сразу. После "
+    "этого переходи к следующему пункту. Когда отправил вердикты по всем пунктам — вызови "
+    "finish.\n"
+    "Не выдумывай пункты, которых нет в тексте слайдов, и не ссылайся на номера слайдов, "
+    "которых не было во входе — если сомневаешься в номере, посмотри read_slides ещё раз. "
     "evidence — только реальные путь и строка из того, что ты действительно прочитал "
     "инструментами; basis — короткое основание своими словами, обязательно содержащее "
     "конкретное имя (функции, класса, эндпоинта, файла), которое реально стоит рядом со "
-    "строкой — по нему проверяется ссылка. Если подтверждения не нашёл — верни NOT_STARTED "
-    "с пустым evidence, не выдумывай ссылки. За один ход — либо вызов инструмента, либо "
-    "финальный текстовый ответ, не оба сразу."
+    "строкой — по нему проверяется ссылка. Если подтверждения не нашёл — отправь "
+    "NOT_STARTED с пустым evidence, не выдумывай ссылки. За один ход можно вызвать один или "
+    "несколько инструментов, включая несколько submit_verdict подряд, если уверен сразу по "
+    "нескольким пунктам."
 )
 
-_JSON_OBJECT = re.compile(r"\{[\s\S]*\}")
+_SUBMIT_VERDICT_SCHEMA: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "submit_verdict",
+        "description": "Отправить один пункт плана и вердикт по нему сразу — вызывай один "
+                       "раз на каждый обнаруженный пункт, сразу после того как собрал по "
+                       "нему evidence. Повторный вызов с тем же item_id заменяет предыдущий "
+                       "вердикт по этому пункту.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "item_id": {"type": "string", "description": "короткий устойчивый идентификатор латиницей/цифрами/дефисами"},
+                "title": {"type": "string", "description": "название пункта плана"},
+                "stage": {"type": "string", "description": "этап/спринт, если указан на слайде"},
+                "description": {"type": "string", "description": "краткое описание пункта своими словами"},
+                "source_slide": {"type": "integer", "description": "номер слайда, с которого взят пункт — только реально существующий во входе"},
+                "status": {"type": "string", "enum": list(STATUSES)},
+                "explanation": {"type": "string", "description": "объяснение вердикта своими словами"},
+                "evidence": {
+                    "type": "array",
+                    "description": "ссылки на код, подтверждающие вердикт; пусто, если статус NOT_STARTED",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "basis": {"type": "string"},
+                        },
+                    },
+                },
+            },
+            "required": ["item_id", "title", "source_slide", "status", "explanation"],
+        },
+    },
+}
+
+_FINISH_SCHEMA: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "finish",
+        "description": "Вызови, когда отправил вердикты по всем пунктам плана — сессия завершена.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+_SESSION_TOOL_SCHEMAS: list[dict[str, Any]] = REPO_TOOL_SCHEMAS + [_SUBMIT_VERDICT_SCHEMA, _FINISH_SCHEMA]
+_CONTROL_TOOLS = ("submit_verdict", "finish")
+
 _MAX_MALFORMED = 3
 _REPEAT_STOP = 3
 
 
 @dataclass
-class MatchResult:
+class AgentResult:
+    items: list[PlanItem] = field(default_factory=list)
     verdicts: list[ItemVerdict] = field(default_factory=list)
     source: str = "none"
     notes: list[str] = field(default_factory=list)
 
     @property
     def usable(self) -> bool:
-        return bool(self.verdicts)
+        return bool(self.items)
 
 
-def match_plan(
-    items: list[PlanItem],
+def run_agent(
+    slides: list[Slide],
     tree: Tree,
     spec: ModelSpec | None,
     client: ChatClient | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
-) -> MatchResult:
-    """Сопоставить пункты плана с кодом — отдельный агентный цикл на каждый пункт.
+) -> AgentResult:
+    """Выделить пункты плана из слайдов и сопоставить их с кодом — одна сессия.
 
-    `client` — тестовая инъекция по образцу `pko.progress.plan_extract.extract_plan`:
-    без неё `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
+    `client` — тестовая инъекция по образцу остальных LLM-ролей: без неё
+    `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
     """
     if spec is None:
-        return MatchResult(notes=["Matcher не настроен: сопоставление не выполнено"])
-    if not items:
-        return MatchResult(notes=["Пунктов плана нет — сопоставлять нечего"])
+        return AgentResult(notes=["Matcher не настроен: план и вердикты не получены"])
 
-    verdicts: list[ItemVerdict] = []
-    notes: list[str] = []
-    ungrounded = 0
-    for item in items:
-        verdict, item_notes = _investigate_item(item, tree, spec, client, max_steps)
-        verdicts.append(verdict)
-        notes.extend(item_notes)
-        if verdict.status in ("DONE", "PARTIAL") and not verdict.is_grounded:
-            ungrounded += 1
+    content_slides = [s for s in slides if not s.is_empty]
+    if not content_slides:
+        return AgentResult(notes=["В презентации нет текстовых фигур"])
 
+    known_slides = {s.number for s in content_slides}
+    user = "Слайды презентации:\n\n" + "\n\n".join(render_slide(s) for s in content_slides)
+
+    chat_client = client if client is not None else ChatClient(spec=spec)
+    items, verdicts, notes = _run_session(user, known_slides, content_slides, tree, chat_client, max_steps)
+
+    ungrounded = sum(1 for v in verdicts if v.status in ("DONE", "PARTIAL") and not v.is_grounded)
     if ungrounded:
         notes.append(
             f"Вердиктов DONE/PARTIAL без единой подтверждённой ссылки на код: {ungrounded} — "
             "агент утверждает прогресс, но код это не показывает; нужна ручная проверка"
         )
-    return MatchResult(verdicts=verdicts, source="llm", notes=notes)
+    return AgentResult(items=items, verdicts=verdicts, source="llm" if items else "none", notes=notes)
 
 
 def find_unclaimed_paths(
@@ -136,116 +203,157 @@ def find_unclaimed_paths(
     ]
 
 
-def _investigate_item(
-    item: PlanItem,
+def _run_session(
+    user_brief: str,
+    known_slides: set[int],
+    slides: list[Slide],
     tree: Tree,
-    spec: ModelSpec,
-    client: ChatClient | None,
+    chat_client: ChatClient,
     max_steps: int,
-) -> tuple[ItemVerdict, list[str]]:
-    """Изолированный агентный цикл на один пункт плана.
-
-    Возвращает вердикт и заметки о ходе расследования (пустые при чистом
-    завершении через `final`).
-    """
-    chat_client = client if client is not None else ChatClient(spec=spec)
-    tools = ToolBox(tree)
+) -> tuple[list[PlanItem], list[ItemVerdict], list[str]]:
+    """Цикл «пункт → evidence → submit_verdict → следующий пункт» до `finish`."""
+    tools = ToolBox(tree, slides)
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": _AGENT_SYSTEM},
-        {"role": "user", "content": _item_brief(item)},
+        {"role": "user", "content": user_brief},
     ]
     notes: list[str] = []
     recent_calls: list[tuple[tuple[str, str], ...]] = []
     malformed = 0
+    items_by_id: dict[str, PlanItem] = {}
+    verdicts_by_id: dict[str, ItemVerdict] = {}
+    finished = False
 
     for step in range(1, max(1, max_steps) + 1):
         try:
-            result = chat_client.chat(messages, tools=TOOL_SCHEMAS, max_tokens=1500)
+            result = chat_client.chat(messages, tools=_SESSION_TOOL_SCHEMAS, max_tokens=2000)
         except LlmError as exc:
-            notes.append(f"{item.id}: matcher недоступен на шаге {step}: {exc.message}")
-            return _unclear(item, "LLM недоступен во время исследования"), notes
+            notes.append(f"агент недоступен на шаге {step}: {exc.message}")
+            break
 
-        if result.tool_calls:
-            signature = tuple(sorted(
-                (str((c.get("function") or {}).get("name") or ""),
-                 str((c.get("function") or {}).get("arguments") or ""))
-                for c in result.tool_calls
-            ))
-            recent_calls.append(signature)
-            if len(recent_calls) >= _REPEAT_STOP and len(set(recent_calls[-_REPEAT_STOP:])) == 1:
-                notes.append(f"{item.id}: остановлено — {_REPEAT_STOP} одинаковых вызова инструмента подряд")
-                return _unclear(item, f"агент повторил один и тот же вызов {_REPEAT_STOP} раза подряд"), notes
-
-            messages.append({
-                "role": "assistant",
-                "content": result.text or None,
-                "tool_calls": result.tool_calls,
-            })
-            for call in result.tool_calls:
-                function = call.get("function") or {}
-                name = str(function.get("name") or "")
-                raw_args = function.get("arguments") or "{}"
-                try:
-                    args = json.loads(raw_args)
-                except json.JSONDecodeError:
-                    tool_content = f"аргументы инструмента не являются валидным JSON: {raw_args!r}"
-                else:
-                    outcome = tools.call(name, args if isinstance(args, dict) else {})
-                    tool_content = outcome.content
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": str(call.get("id") or ""),
-                    "content": tool_content,
-                })
-            continue
-
-        final_obj = _extract_json_object(result.text)
-        if final_obj is None:
+        if not result.tool_calls:
             malformed += 1
             if malformed >= _MAX_MALFORMED:
-                notes.append(f"{item.id}: неразбираемый ответ агента {malformed} раз подряд — остановлено")
-                return _unclear(item, "агент не вернул распознаваемый JSON"), notes
+                notes.append(f"агент не вызвал инструмент {malformed} раз подряд — остановлено")
+                break
             messages.append({"role": "assistant", "content": result.text})
             messages.append({
                 "role": "user",
-                "content": "Финальный ответ должен быть одним JSON-объектом: "
-                           "{status, explanation, evidence}. Если хочешь продолжить поиск — вызови инструмент.",
+                "content": "Нужно вызвать инструмент — включая submit_verdict по пункту "
+                           "плана или finish, когда закончил.",
             })
             continue
+        malformed = 0
 
-        return _parse_final(item, final_obj, tree), notes
+        signature = tuple(sorted(
+            (str((c.get("function") or {}).get("name") or ""),
+             str((c.get("function") or {}).get("arguments") or ""))
+            for c in result.tool_calls
+        ))
+        recent_calls.append(signature)
+        if len(recent_calls) >= _REPEAT_STOP and len(set(recent_calls[-_REPEAT_STOP:])) == 1:
+            notes.append(f"остановлено — {_REPEAT_STOP} одинаковых вызова подряд")
+            break
 
-    notes.append(f"{item.id}: бюджет шагов исчерпан ({max_steps}) без финального ответа")
-    return _unclear(item, f"бюджет шагов исчерпан ({max_steps}) — расследование не завершено"), notes
+        messages.append({
+            "role": "assistant",
+            "content": result.text or None,
+            "tool_calls": result.tool_calls,
+        })
+
+        for call in result.tool_calls:
+            function = call.get("function") or {}
+            name = str(function.get("name") or "")
+            raw_args = function.get("arguments") or "{}"
+            call_id = str(call.get("id") or "")
+            try:
+                args = json.loads(raw_args)
+            except json.JSONDecodeError:
+                messages.append({
+                    "role": "tool", "tool_call_id": call_id,
+                    "content": f"аргументы инструмента не являются валидным JSON: {raw_args!r}",
+                })
+                continue
+            args = args if isinstance(args, dict) else {}
+
+            if name == "submit_verdict":
+                item, verdict, error = _submit_verdict(args, known_slides, set(items_by_id), tree)
+                if error:
+                    tool_content = f"вердикт отклонён: {error}"
+                else:
+                    items_by_id[item.id] = item
+                    verdicts_by_id[item.id] = verdict
+                    tool_content = "вердикт принят"
+                messages.append({"role": "tool", "tool_call_id": call_id, "content": tool_content})
+                continue
+
+            if name == "finish":
+                messages.append({"role": "tool", "tool_call_id": call_id, "content": "сессия завершена"})
+                finished = True
+                continue
+
+            outcome = tools.call(name, args)
+            messages.append({"role": "tool", "tool_call_id": call_id, "content": outcome.content})
+
+        if finished:
+            break
+    else:
+        notes.append(f"бюджет шагов исчерпан ({max_steps})")
+
+    if not verdicts_by_id:
+        notes.append("Пункты плана не отправлены (submit_verdict не вызывался)")
+    return list(items_by_id.values()), list(verdicts_by_id.values()), notes
 
 
-def _item_brief(item: PlanItem) -> str:
-    parts = [f"Пункт плана: {item.title}"]
-    if item.stage:
-        parts.append(f"Этап: {item.stage}")
-    if item.description:
-        parts.append(f"Описание: {item.description}")
-    return "\n".join(parts)
+def _submit_verdict(
+    args: dict, known_slides: set[int], seen_ids: set[str], tree: Tree
+) -> tuple[PlanItem | None, ItemVerdict | None, str | None]:
+    item = _validate_item(args, known_slides, seen_ids)
+    if item is None:
+        return None, None, "проверьте title и source_slide (должен быть реальным номером слайда из входных данных)"
+    verdict = _parse_final(item, args, tree)
+    return item, verdict, None
+
+
+def _validate_item(raw: object, known_slides: set[int], seen_ids: set[str]) -> PlanItem | None:
+    if not isinstance(raw, dict):
+        return None
+    title = str(raw.get("title") or "").strip()
+    if not title:
+        return None
+    try:
+        source_slide = int(raw.get("source_slide"))
+    except (TypeError, ValueError):
+        return None
+    if source_slide not in known_slides:
+        return None
+    # Явный id — как есть, даже если уже встречался: это намеренный ресабмит
+    # (агент пересматривает уже отправленный пункт), не коллизия. Дизамбигуация
+    # нужна только автосгенерированному id — тут коллизия означает, что две
+    # РАЗНЫЕ заявки с одного слайда обе остались без id.
+    explicit_id = str(raw.get("id") or raw.get("item_id") or "").strip()
+    if explicit_id:
+        item_id = explicit_id
+    else:
+        item_id = f"slide-{source_slide}-{len(seen_ids) + 1}"
+        if item_id in seen_ids:
+            item_id = f"{item_id}-{len(seen_ids) + 1}"
+    return PlanItem(
+        id=item_id,
+        title=title,
+        stage=str(raw.get("stage") or "").strip(),
+        description=str(raw.get("description") or "").strip(),
+        source_slide=source_slide,
+    )
 
 
 def _unclear(item: PlanItem, reason: str) -> ItemVerdict:
     return ItemVerdict(item_id=item.id, status="UNCLEAR", explanation=reason, evidence=[])
 
 
-def _extract_json_object(raw: str) -> dict | None:
-    match = _JSON_OBJECT.search(raw or "")
-    if not match:
-        return None
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return None
-    return data if isinstance(data, dict) else None
-
-
 def _parse_final(item: PlanItem, raw: object, tree: Tree) -> ItemVerdict:
     if not isinstance(raw, dict):
-        return _unclear(item, "final не является объектом")
+        return _unclear(item, "вердикт не является объектом")
     status = str(raw.get("status") or "").strip().upper()
     if status not in STATUSES:
         status = "UNCLEAR"

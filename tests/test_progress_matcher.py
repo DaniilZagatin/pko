@@ -1,9 +1,9 @@
-"""Агентный matcher: изолированный цикл на пункт плана, инструменты вместо
-заранее собранного списка кандидатов.
+"""Единый агент (`run_agent`): текст слайдов -> пункты плана + вердикты, по
+одному пункту за раз через `submit_verdict`, до `finish`.
 
 Транспорт подменяется тем же способом, что и в остальных LLM-тестах:
 `ChatClient._request` отдаёт по одному заготовленному ответу на каждый ход
-цикла. Путь/строка/якорь проверяются на настоящей фикстуре `mini_repo`.
+сессии. Путь/строка/якорь проверяются на настоящей фикстуре `mini_repo`.
 """
 
 import json
@@ -14,18 +14,24 @@ from pko.extractors.base import Tree
 from pko.git.repo import GitRepo
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
-from pko.progress.matcher import (
-    DEFAULT_MAX_STEPS,
-    find_unclaimed_paths,
-    match_plan,
-)
-from pko.progress.schema import EvidenceRef, ItemVerdict, PlanItem
+from pko.progress.matcher import DEFAULT_MAX_STEPS, find_unclaimed_paths, run_agent
+from pko.progress.pptx_reader import Slide, SlideShape
+from pko.progress.schema import EvidenceRef, ItemVerdict
 
 SPEC = ModelSpec(role="matcher", base_url="https://stub.local/v1", model="stub-model", api_key="x")
 
-ITEMS = [
-    PlanItem(id="tasks-api", title="Постановка задач в обработку", source_slide=1),
+SLIDES = [
+    Slide(number=1, heading="Задачи спринта", shapes=[
+        SlideShape(text="Постановка задач в обработку\n"
+                        "API, который принимает задачу и ставит её в очередь",
+                   left=0.5, top=1.2, width=4.0, height=2.2),
+        SlideShape(text="Биллинг подписок\nСписание средств за подписку по расписанию",
+                   left=4.8, top=1.2, width=4.0, height=2.2),
+    ]),
 ]
+
+ROUTER_EVIDENCE = [{"path": "backend/src/api/v1/router.py", "line": 7,
+                    "basis": "функция start_task ставит задачу в обработку"}]
 
 
 def _call(name: str, args: dict, call_id: str | None = None) -> dict:
@@ -48,16 +54,19 @@ def parallel_tool_calls(*calls: tuple[str, dict]) -> dict:
     ]}
 
 
-def final(status: str, explanation: str = "x", evidence: list[dict] | None = None) -> dict:
-    """Финальный ход — обычный текстовый ответ, без tool_calls."""
-    return {"content": json.dumps(
-        {"status": status, "explanation": explanation, "evidence": evidence or []},
-        ensure_ascii=False,
-    )}
+def submit(item_id: str, title: str, source_slide: int, status: str,
+           explanation: str = "x", evidence: list[dict] | None = None, **extra) -> dict:
+    args = {"item_id": item_id, "title": title, "source_slide": source_slide,
+            "status": status, "explanation": explanation, "evidence": evidence or [], **extra}
+    return tool_call("submit_verdict", **args)
+
+
+def finish() -> dict:
+    return tool_call("finish")
 
 
 def malformed(text: str) -> dict:
-    """Ход, который не распознать ни как вызов инструмента, ни как final."""
+    """Ход без вызова инструмента вообще — единственный вид «неразобранного» хода теперь."""
     return {"content": text}
 
 
@@ -65,14 +74,14 @@ def scripted(*answers: dict):
     queue = list(answers)
 
     def _request(self, method, path, payload):
-        message = queue.pop(0) if queue else final("UNCLEAR", "очередь ответов закончилась")
+        message = queue.pop(0) if queue else finish()
         return {"choices": [{"message": message}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
 
     return _request
 
 
-class MatcherTest(unittest.TestCase):
+class MatcherAgentTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.repo = GitRepo(ensure_fixture())
@@ -84,49 +93,73 @@ class MatcherTest(unittest.TestCase):
         self.addCleanup(setattr, ChatClient, "_request", self._original)
         self.client = ChatClient(spec=SPEC, use_cache=False)
 
-    def _run(self, *answers, items=ITEMS, max_steps=DEFAULT_MAX_STEPS):
+    def _run(self, *answers, slides=SLIDES, max_steps=DEFAULT_MAX_STEPS):
         ChatClient._request = scripted(*answers)
-        return match_plan(items, self.tree, SPEC, client=self.client, max_steps=max_steps)
+        return run_agent(slides, self.tree, SPEC, client=self.client, max_steps=max_steps)
 
     def test_no_spec_returns_empty_with_note(self):
-        result = match_plan(ITEMS, self.tree, spec=None)
+        result = run_agent(SLIDES, self.tree, spec=None)
         self.assertFalse(result.usable)
         self.assertIn("не настроен", result.notes[0])
 
-    def test_no_items_returns_empty_with_note(self):
-        result = match_plan([], self.tree, SPEC, client=self.client)
+    def test_no_content_slides_returns_empty_with_note(self):
+        empty_slide = Slide(number=1, heading=None, shapes=[])
+        result = run_agent([empty_slide], self.tree, SPEC, client=self.client)
         self.assertFalse(result.usable)
+        self.assertIn("нет текстовых фигур", result.notes[0])
 
-    def test_item_confirmed_via_list_then_read(self):
+    def test_full_session_submit_then_finish(self):
         result = self._run(
             tool_call("list_files", glob="*.py"),
             tool_call("read_file", path="backend/src/api/v1/router.py"),
-            final("DONE", "Эндпоинт постановки задачи реализован.", [
-                {"path": "backend/src/api/v1/router.py", "line": 7,
-                 "basis": "функция start_task ставит задачу в обработку"},
-            ]),
+            submit("tasks-api", "Постановка задач в обработку", 1, "DONE",
+                  "Эндпоинт постановки задачи реализован.", ROUTER_EVIDENCE),
+            submit("billing", "Биллинг подписок", 1, "NOT_STARTED",
+                  "Кода для биллинга подписок не нашлось."),
+            finish(),
         )
         self.assertEqual(result.source, "llm")
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "DONE")
-        self.assertTrue(verdict.is_grounded)
-        self.assertTrue(verdict.evidence[0].verified)
+        self.assertEqual(len(result.items), 2)
+        by_id = {v.item_id: v for v in result.verdicts}
+        self.assertEqual(by_id["tasks-api"].status, "DONE")
+        self.assertTrue(by_id["tasks-api"].is_grounded)
+        self.assertTrue(by_id["tasks-api"].evidence[0].verified)
+        self.assertEqual(by_id["billing"].status, "NOT_STARTED")
 
-    def test_item_not_found_after_search(self):
+    def test_invalid_submit_is_rejected_and_can_be_resubmitted(self):
         result = self._run(
-            tool_call("search", pattern="billing"),
-            tool_call("search", pattern="subscription"),
-            final("NOT_STARTED", "Кода для биллинга подписок не нашлось.", []),
+            submit("ghost", "Выдуманная задача", 99, "DONE"),
+            submit("tasks-api", "Постановка задач", 1, "NOT_STARTED"),
+            finish(),
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "NOT_STARTED")
-        self.assertEqual(verdict.evidence, [])
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(result.items[0].id, "tasks-api")
+
+    def test_missing_item_id_gets_generated(self):
+        result = self._run(
+            tool_call("submit_verdict", title="Без id", source_slide=1,
+                      status="NOT_STARTED", explanation="x", evidence=[]),
+            finish(),
+        )
+        self.assertEqual(len(result.items), 1)
+        self.assertTrue(result.items[0].id)
+
+    def test_resubmitting_same_item_id_updates_the_verdict(self):
+        result = self._run(
+            submit("tasks-api", "Постановка задач", 1, "NOT_STARTED", "первая попытка"),
+            submit("tasks-api", "Постановка задач", 1, "DONE", "нашёл после доп. поиска", ROUTER_EVIDENCE),
+            finish(),
+        )
+        self.assertEqual(len(result.items), 1)
+        self.assertEqual(len(result.verdicts), 1)
+        self.assertEqual(result.verdicts[0].status, "DONE")
 
     def test_fabricated_evidence_path_is_not_verified_but_kept(self):
         result = self._run(
-            final("DONE", "Похоже, сделано.", [
+            submit("tasks-api", "Постановка задач", 1, "DONE", "Похоже, сделано.", [
                 {"path": "backend/src/billing_service.py", "line": 1, "basis": "x"},
             ]),
+            finish(),
         )
         verdict = result.verdicts[0]
         self.assertEqual(len(verdict.evidence), 1)
@@ -136,10 +169,9 @@ class MatcherTest(unittest.TestCase):
 
     def test_explanation_naming_a_nonexistent_file_is_rejected(self):
         result = self._run(
-            final("DONE", "Также реализовано в billing_service.py.", [
-                {"path": "backend/src/api/v1/router.py", "line": 7,
-                 "basis": "функция start_task ставит задачу в обработку"},
-            ]),
+            submit("tasks-api", "Постановка задач", 1, "DONE",
+                  "Также реализовано в billing_service.py.", ROUTER_EVIDENCE),
+            finish(),
         )
         verdict = result.verdicts[0]
         self.assertIn("отклонено сторожем", verdict.explanation)
@@ -150,10 +182,9 @@ class MatcherTest(unittest.TestCase):
             tool_call("search", pattern="x"),
             tool_call("search", pattern="x"),
             tool_call("search", pattern="x"),
-            final("DONE", "не должно быть достигнуто"),
+            finish(),
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "UNCLEAR")
+        self.assertFalse(result.usable)
         self.assertIn("одинаковых вызова", " ".join(result.notes))
 
     def test_stops_at_step_budget(self):
@@ -163,24 +194,38 @@ class MatcherTest(unittest.TestCase):
             tool_call("search", pattern="a"),
             max_steps=3,
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "UNCLEAR")
+        self.assertFalse(result.usable)
         self.assertIn("бюджет шагов", " ".join(result.notes))
+
+    def test_budget_exhausted_still_returns_already_submitted_verdicts(self):
+        result = self._run(
+            submit("tasks-api", "Постановка задач", 1, "DONE", "готово", ROUTER_EVIDENCE),
+            tool_call("search", pattern="a"),
+            tool_call("search", pattern="b"),
+            max_steps=3,
+        )
+        self.assertTrue(result.usable)
+        self.assertEqual(result.verdicts[0].status, "DONE")
+        self.assertIn("бюджет шагов", " ".join(result.notes))
+
+    def test_finish_immediately_without_any_submission(self):
+        result = self._run(finish())
+        self.assertFalse(result.usable)
+        self.assertIn("не отправлены", " ".join(result.notes))
 
     def test_tolerates_a_few_malformed_responses_then_recovers(self):
         result = self._run(
             malformed("извините, не могу помочь"),
             malformed("и снова не JSON"),
-            final("NOT_STARTED", "не нашлось"),
+            submit("tasks-api", "Постановка задач", 1, "NOT_STARTED", "не нашлось"),
+            finish(),
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "NOT_STARTED")
+        self.assertEqual(result.verdicts[0].status, "NOT_STARTED")
 
     def test_gives_up_after_too_many_malformed_responses(self):
         result = self._run(malformed("x"), malformed("y"), malformed("z"), malformed("w"))
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "UNCLEAR")
-        self.assertIn("неразбираемый ответ", " ".join(result.notes))
+        self.assertFalse(result.usable)
+        self.assertIn("не вызвал инструмент", " ".join(result.notes))
 
     def test_parallel_tool_calls_in_one_turn_both_execute(self):
         result = self._run(
@@ -188,13 +233,22 @@ class MatcherTest(unittest.TestCase):
                 ("list_files", {"glob": "*.py"}),
                 ("search", {"pattern": "start_task"}),
             ),
-            final("DONE", "Найдено сразу двумя путями.", [
-                {"path": "backend/src/api/v1/router.py", "line": 7, "basis": "start_task"},
-            ]),
+            submit("tasks-api", "Постановка задач", 1, "DONE",
+                  "Найдено сразу двумя путями.", ROUTER_EVIDENCE),
+            finish(),
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "DONE")
-        self.assertTrue(verdict.evidence[0].verified)
+        self.assertEqual(result.verdicts[0].status, "DONE")
+        self.assertTrue(result.verdicts[0].evidence[0].verified)
+
+    def test_submit_verdict_and_finish_in_the_same_turn(self):
+        result = self._run(parallel_tool_calls(
+            ("submit_verdict", {"item_id": "tasks-api", "title": "Постановка задач",
+                                "source_slide": 1, "status": "DONE",
+                                "explanation": "готово", "evidence": ROUTER_EVIDENCE}),
+            ("finish", {}),
+        ))
+        self.assertTrue(result.usable)
+        self.assertEqual(result.verdicts[0].status, "DONE")
 
     def test_invalid_tool_arguments_json_does_not_crash_and_lets_model_recover(self):
         result = self._run(
@@ -203,38 +257,10 @@ class MatcherTest(unittest.TestCase):
                 "type": "function",
                 "function": {"name": "read_file", "arguments": "{not valid json"},
             }]},
-            final("NOT_STARTED", "аргументы были битые, но цикл продолжился"),
+            submit("tasks-api", "Постановка задач", 1, "NOT_STARTED", "аргументы были битые"),
+            finish(),
         )
-        verdict = result.verdicts[0]
-        self.assertEqual(verdict.status, "NOT_STARTED")
-
-    def test_unrecognized_status_becomes_unclear(self):
-        result = self._run(final("MOSTLY_DONE"))
-        self.assertEqual(result.verdicts[0].status, "UNCLEAR")
-
-    def test_missing_tool_falls_back_to_a_clean_tool_error_not_a_crash(self):
-        result = self._run(
-            tool_call("delete_repo"),
-            final("UNCLEAR", "инструмент не сработал"),
-        )
-        self.assertEqual(result.verdicts[0].status, "UNCLEAR")
-
-    def test_multiple_items_each_get_their_own_turn_sequence(self):
-        items = [
-            PlanItem(id="tasks-api", title="Постановка задач", source_slide=1),
-            PlanItem(id="billing", title="Биллинг подписок", source_slide=1),
-        ]
-        result = self._run(
-            final("DONE", "Реализовано.", [
-                {"path": "backend/src/api/v1/router.py", "line": 7, "basis": "start_task"},
-            ]),
-            final("NOT_STARTED", "Не нашлось.", []),
-            items=items,
-        )
-        self.assertEqual(len(result.verdicts), 2)
-        by_id = {v.item_id: v for v in result.verdicts}
-        self.assertEqual(by_id["tasks-api"].status, "DONE")
-        self.assertEqual(by_id["billing"].status, "NOT_STARTED")
+        self.assertEqual(result.verdicts[0].status, "NOT_STARTED")
 
 
 class UnclaimedPathsTest(unittest.TestCase):

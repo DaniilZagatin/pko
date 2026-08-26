@@ -141,3 +141,32 @@ def cluster_rows(shapes: list[SlideShape]) -> list[list[SlideShape]]:
     for row in rows:
         row.sort(key=lambda s: s.left)
     return rows
+
+
+def render_slide(slide: Slide) -> str:
+    """Слайд как читаемый текст: заголовок, дальше — строки фигур по порядку.
+
+    Не JSON: связный текст с явной структурой строк надёжнее для LLM, чем
+    нагромождение чисел-координат — модель не vision, пространственное
+    рассуждение по `left`/`top` для неё не сильная сторона. Строки уже
+    сгруппированы кодом (`cluster_rows`, по близости `top`), а какая это по
+    смыслу строка (задачи или этапы), решает модель по самому тексту.
+    """
+    header = f"Слайд {slide.number}"
+    if slide.heading:
+        header += f": {slide.heading}"
+    lines = [header]
+
+    rows = cluster_rows(slide.shapes)
+    if not rows:
+        lines.append("  (текстовых фигур на слайде нет)")
+        return "\n".join(lines)
+
+    for row_no, row in enumerate(rows, start=1):
+        lines.append(f"  Строка {row_no} (фигур: {len(row)}):")
+        for item_no, shape in enumerate(row, start=1):
+            title, _, body = shape.text.partition("\n")
+            lines.append(f"    {item_no}. {title.strip()}")
+            if body.strip():
+                lines.append(f"       {body.strip()}")
+    return "\n".join(lines)

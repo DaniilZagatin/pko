@@ -2,8 +2,8 @@
 
 Транспорт подменяется тем же способом, что и в остальных LLM-тестах. Кеш
 дополнительно уводится во временный каталог: `cmd_progress` строит `ChatClient`
-внутри `extract_plan`/`match_plan` без инъекции тестового клиента, поэтому без
-этого прогон писал бы в реальный `~/.pko/llm-cache`.
+внутри `run_agent` без инъекции тестового клиента, поэтому без этого прогон
+писал бы в реальный `~/.pko/llm-cache`.
 """
 
 import json
@@ -21,12 +21,22 @@ from test_progress_pptx import build_sample_deck
 ENV_KEYS = ("PKO_ASSEMBLER_BASE_URL", "PKO_ASSEMBLER_MODEL", "PKO_ASSEMBLER_API_KEY")
 
 
-def scripted(*answers: str):
+def _tool_call(call_id: str, name: str, **args) -> dict:
+    return {"content": None, "tool_calls": [{
+        "id": call_id, "type": "function",
+        "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)},
+    }]}
+
+
+def scripted(*answers):
+    """Каждый элемент — либо голая строка (`.complete()`: planner/reporter),
+    либо готовый словарь-сообщение (`.chat()`: агентный matcher)."""
     queue = list(answers)
 
     def _request(self, method, path, payload):
-        text = queue.pop(0) if queue else json.dumps({})
-        return {"choices": [{"message": {"content": text}}],
+        item = queue.pop(0) if queue else json.dumps({})
+        message = {"content": item} if isinstance(item, str) else item
+        return {"choices": [{"message": message}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
 
     return _request
@@ -67,22 +77,20 @@ class ProgressCliTest(unittest.TestCase):
         self.addCleanup(_restore_env)
 
     def test_full_run_produces_report_and_model(self):
-        plan_answer = json.dumps({"items": [
-            {"id": "tasks-api", "title": "API постановки задач", "source_slide": 2},
-        ]})
-        # Агентный matcher: один пункт плана — один изолированный цикл. Модель
-        # сразу отвечает финальным текстом (без tool_calls), инструменты в
-        # этом сценарии не нужны.
-        match_answer = json.dumps({
-            "status": "DONE",
-            "explanation": "Эндпоинт постановки задачи реализован.",
-            "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
-                         "basis": "функция start_task ставит задачу в обработку"}],
-        })
+        # Единый агент: пункт плана + вердикт одним submit_verdict, затем
+        # finish — инструменты поиска по коду в этом сценарии не нужны.
+        submit_answer = _tool_call(
+            "call_submit", "submit_verdict",
+            item_id="tasks-api", title="API постановки задач", source_slide=2,
+            status="DONE", explanation="Эндпоинт постановки задачи реализован.",
+            evidence=[{"path": "backend/src/api/v1/router.py", "line": 7,
+                      "basis": "функция start_task ставит задачу в обработку"}],
+        )
+        finish_answer = _tool_call("call_finish", "finish")
         # reporter — необязательная роль, но резолвится через тот же
         # PKO_ASSEMBLER_* и получит свой запрос последним.
         summary_answer = "Задача постановки задач реализована и подтверждена кодом."
-        ChatClient._request = scripted(plan_answer, match_answer, summary_answer)
+        ChatClient._request = scripted(submit_answer, finish_answer, summary_answer)
 
         exit_code = cli.main([
             "progress", str(self.plan_path),

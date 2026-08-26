@@ -1,9 +1,10 @@
-"""Инструменты агентного matcher'а: read-only доступ к дереву репозитория.
+"""Инструменты единого агента: read-only доступ к презентации и к дереву репозитория.
 
-Три инструмента — `list_files`, `read_file`, `search` — и ничего больше: нет
-ни bash, ни write-операций, поэтому набор инструментов физически не может
-изменить репозиторий, только прочитать его на зафиксированном коммите.
-Секреты (`*_key`/`*_token`/`*_secret`/`*_password`) маскируются в выдаче,
+Четыре инструмента — `read_slides`, `list_files`, `read_file`, `search` — и
+ничего больше: нет ни bash, ни write-операций, поэтому набор инструментов
+физически не может изменить репозиторий, только прочитать его на
+зафиксированном коммите (презентация и так неизменяемый вход). Секреты
+(`*_key`/`*_token`/`*_secret`/`*_password`) маскируются в выдаче,
 `.env*`/`*.pem`/`*.key` не читаются вовсе.
 """
 
@@ -16,9 +17,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from pko.extractors.base import Tree, is_vendor
+from pko.progress.pptx_reader import Slide, render_slide
 
 MAX_LIST_FILES = 400
 MAX_READ_LINES = 400
+MAX_SLIDES = 30
 SEARCH_MAX_MATCHES = 200
 SEARCH_TIMEOUT_SECONDS = 5.0
 MAX_SEARCH_LINE_CHARS = 2000
@@ -37,6 +40,20 @@ _CATASTROPHIC_SHAPE = re.compile(r"\([^()]*[+*?][^()]*\)[+*]")
 # Нативные OpenAI-совместимые схемы тулов (`tools=[...]` в запросе) — один в
 # один повторяют сигнатуры и дефолты методов `ToolBox` ниже.
 TOOL_SCHEMAS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "read_slides",
+            "description": "Посмотреть текст слайдов презентации ещё раз (уже был дан в начале сессии).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "offset": {"type": "integer", "description": "С какого слайда по порядку продолжить (постранично)", "default": 1},
+                    "limit": {"type": "integer", "description": f"Сколько слайдов вернуть (не больше {MAX_SLIDES})", "default": MAX_SLIDES},
+                },
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -94,14 +111,17 @@ class ToolResult:
 
 
 class ToolBox:
-    """Инструменты над одним `Tree` — снимком репозитория на конкретном коммите."""
+    """Инструменты над презентацией и `Tree` — снимком репозитория на коммите."""
 
-    def __init__(self, tree: Tree):
+    def __init__(self, tree: Tree, slides: list[Slide] | None = None):
         self.tree = tree
         self._files = [p for p in tree.files if not is_vendor(p)]
+        self._slides = list(slides) if slides else []
 
     def call(self, name: str, args: dict[str, Any] | None) -> ToolResult:
         args = args if isinstance(args, dict) else {}
+        if name == "read_slides":
+            return self.read_slides(offset=_as_int(args.get("offset"), 1), limit=_as_int(args.get("limit"), MAX_SLIDES))
         if name == "list_files":
             return self.list_files(glob=str(args.get("glob") or "*"), offset=_as_int(args.get("offset"), 1))
         if name == "read_file":
@@ -116,7 +136,17 @@ class ToolBox:
                 glob=str(args.get("glob") or "*"),
                 offset=_as_int(args.get("offset"), 1),
             )
-        return ToolResult(False, f"неизвестный инструмент: {name!r}. Доступны: list_files, read_file, search", {})
+        return ToolResult(False, f"неизвестный инструмент: {name!r}. Доступны: read_slides, list_files, read_file, search", {})
+
+    def read_slides(self, offset: int = 1, limit: int = MAX_SLIDES) -> ToolResult:
+        limit = max(1, min(limit, MAX_SLIDES))
+        page, has_more = _paginate(self._slides, offset, limit)
+        if not page:
+            return ToolResult(True, "(слайдов нет или offset за пределами презентации)", {})
+        content = "\n\n".join(render_slide(s) for s in page)
+        if has_more:
+            content += f"\n\n... есть ещё слайды, offset={offset + limit} для продолжения"
+        return ToolResult(True, content, {"count": len(page), "total": len(self._slides)})
 
     def list_files(self, glob: str = "*", offset: int = 1) -> ToolResult:
         matched = _glob_filter(self._files, glob)
@@ -212,7 +242,7 @@ def _glob_filter(paths: list[str], pattern: str) -> list[str]:
     ]
 
 
-def _paginate(items: list[str], offset: int, limit: int) -> tuple[list[str], bool]:
+def _paginate(items: list[Any], offset: int, limit: int) -> tuple[list[Any], bool]:
     offset = max(1, offset)
     start = offset - 1
     page = items[start: start + limit]

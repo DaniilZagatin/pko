@@ -51,8 +51,8 @@ def summarize_progress(
 ) -> WrittenSummary:
     """Сформировать сводный вывод. Без роли/при сбое — пустой результат, не шаблон.
 
-    `client` — та же тестовая инъекция, что и у `extract_plan`/`match_plan`:
-    без неё `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
+    `client` — та же тестовая инъекция, что и у `run_agent`: без неё
+    `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
     """
     if spec is None:
         return WrittenSummary(notes=["Сводный вывод не сформирован: роль reporter не настроена"])

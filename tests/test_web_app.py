@@ -23,12 +23,22 @@ from test_progress_pptx import build_sample_deck
 ENV_KEYS = ("PKO_ASSEMBLER_BASE_URL", "PKO_ASSEMBLER_MODEL", "PKO_ASSEMBLER_API_KEY")
 
 
-def scripted(*answers: str):
+def _tool_call(call_id: str, name: str, **args) -> dict:
+    return {"content": None, "tool_calls": [{
+        "id": call_id, "type": "function",
+        "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)},
+    }]}
+
+
+def scripted(*answers):
+    """Каждый элемент — либо голая строка (`.complete()`: reporter), либо
+    готовый словарь-сообщение (`.chat()`: агентный matcher)."""
     queue = list(answers)
 
     def _request(self, method, path, payload):
-        text = queue.pop(0) if queue else json.dumps({})
-        return {"choices": [{"message": {"content": text}}],
+        item = queue.pop(0) if queue else json.dumps({})
+        message = {"content": item} if isinstance(item, str) else item
+        return {"choices": [{"message": message}],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
 
     return _request
@@ -82,19 +92,17 @@ class WebAppTest(unittest.TestCase):
         self.assertIn('name="plan"', resp.text)
 
     def test_full_run_returns_html_result(self):
-        plan_answer = json.dumps({"items": [
-            {"id": "tasks-api", "title": "API постановки задач", "source_slide": 2},
-        ]})
-        # Агентный matcher: один пункт плана — один изолированный цикл, модель
-        # сразу отвечает финальным текстом (без tool_calls).
-        match_answer = json.dumps({
-            "status": "DONE",
-            "explanation": "Эндпоинт постановки задачи реализован.",
-            "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
-                         "basis": "функция start_task ставит задачу в обработку"}],
-        })
+        # Единый агент: пункт плана + вердикт одним submit_verdict, затем finish.
+        submit_answer = _tool_call(
+            "call_submit", "submit_verdict",
+            item_id="tasks-api", title="API постановки задач", source_slide=2,
+            status="DONE", explanation="Эндпоинт постановки задачи реализован.",
+            evidence=[{"path": "backend/src/api/v1/router.py", "line": 7,
+                      "basis": "функция start_task ставит задачу в обработку"}],
+        )
+        finish_answer = _tool_call("call_finish", "finish")
         summary_answer = "Задача постановки задач реализована и подтверждена кодом."
-        ChatClient._request = scripted(plan_answer, match_answer, summary_answer)
+        ChatClient._request = scripted(submit_answer, finish_answer, summary_answer)
 
         resp = self._post(repo=str(ensure_fixture()))
         self.assertEqual(resp.status_code, 200, resp.text)
