@@ -137,6 +137,12 @@ class ProgressModel:
     verdicts: list[ItemVerdict] = field(default_factory=list)
     unclaimed: list[UnclaimedGroup] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
+    # Связный вывод роли reporter по итогам всех пунктов сразу — необязателен,
+    # пустая строка значит «не сформирован», не «пустой отчёт». `summary_source`
+    # ("llm"/"none") — то же различие авторства, что и у остальных текстов PKO:
+    # читатель должен видеть, что перед ним — написанное моделью или ничего.
+    summary: str = ""
+    summary_source: str = "none"
 
     def counts(self) -> dict[str, int]:
         out = {status: 0 for status in STATUSES}
@@ -165,6 +171,8 @@ class ProgressModel:
             "verdicts": [v.to_dict() for v in self.verdicts],
             "unclaimed": [u.to_dict() for u in self.unclaimed],
             "gaps": self.gaps,
+            "summary": self.summary,
+            "summary_source": self.summary_source,
         }
 
     def to_json(self) -> str:

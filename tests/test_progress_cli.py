@@ -70,13 +70,19 @@ class ProgressCliTest(unittest.TestCase):
         plan_answer = json.dumps({"items": [
             {"id": "tasks-api", "title": "API постановки задач", "source_slide": 2},
         ]})
-        match_answer = json.dumps({"verdicts": [
-            {"item_id": "tasks-api", "status": "DONE",
-             "explanation": "Эндпоинт постановки задачи реализован.",
-             "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
-                           "basis": "функция start_task ставит задачу в обработку"}]},
-        ]})
-        ChatClient._request = scripted(plan_answer, match_answer)
+        # Агентный matcher: один пункт плана — один изолированный цикл. Модель
+        # сразу отвечает финальным текстом (без tool_calls), инструменты в
+        # этом сценарии не нужны.
+        match_answer = json.dumps({
+            "status": "DONE",
+            "explanation": "Эндпоинт постановки задачи реализован.",
+            "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
+                         "basis": "функция start_task ставит задачу в обработку"}],
+        })
+        # reporter — необязательная роль, но резолвится через тот же
+        # PKO_ASSEMBLER_* и получит свой запрос последним.
+        summary_answer = "Задача постановки задач реализована и подтверждена кодом."
+        ChatClient._request = scripted(plan_answer, match_answer, summary_answer)
 
         exit_code = cli.main([
             "progress", str(self.plan_path),
@@ -93,6 +99,8 @@ class ProgressCliTest(unittest.TestCase):
         model = json.loads(model_json.read_text(encoding="utf-8"))
         self.assertEqual(model["counts"]["DONE"], 1)
         self.assertEqual(model["progress_ratio"], 1.0)
+        self.assertEqual(model["summary_source"], "llm")
+        self.assertIn("реализована", model["summary"])
 
         html = report.read_text(encoding="utf-8")
         self.assertIn("API постановки задач", html)

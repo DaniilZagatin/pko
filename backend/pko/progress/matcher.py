@@ -1,22 +1,23 @@
-"""Роль matcher: для каждого пункта плана — вердикт и evidence-кандидаты по коду.
+"""Роль matcher: агент, который сам ищет по коду подтверждение пункту плана.
 
-По образцу `pko.assemble.llm_map`/`pko.progress.plan_extract`: один JSON-вызов
-на весь план сразу, ответ обязан ссылаться на реально переданные `item_id` —
-всё остальное отбрасывается. Модель здесь не видит текст кода, только путь и
-короткое основание факта (`Fact.basis`) — тот же принцип, что и в остальном
-PKO: код не публикуется и не уходит во внешние вызовы дальше необходимого.
+Презентации описывают бизнес-идеи и названия функциональности, а не код —
+заранее собранный список кандидатов (детерминированные факты экстракторов)
+почти никогда лексически не пересекается с этим языком. Поэтому здесь не
+единый batch-запрос по готовому списку, а отдельный агентный цикл на каждый
+пункт плана: модель сама решает, что посмотреть, через read-only инструменты
+`progress.agent_tools.ToolBox` (`list_files`/`read_file`/`search`), а не
+разбирает то, что нашли экстракторы.
 
 Ни одна evidence-ссылка не публикуется без проверки: `progress.verify.verify_evidence`
 подтверждает её структурно (путь и строка существуют на этом коммите, рядом —
 слово из основания). Неподтверждённая ссылка не отбрасывается — остаётся в
 отчёте с `verified=False` и причиной, а вердикт `DONE`/`PARTIAL` без единой
 подтверждённой ссылки явно помечается негрунтованным (`ItemVerdict.is_grounded`),
-а не тихо принимается на слово модели.
+а не тихо принимается на слово агента.
 
 Свободный текст `explanation` — отдельная поверхность: `evidence` проверяется
 структурно, а прозу можно было опубликовать как есть, с любым выдуманным
-именем файла внутри предложения. `report.guard.check_text` (тот же анти-
-галлюцинационный guard, что и у писателя в исходном PKO) проверяет её на
+именем файла внутри предложения. `report.guard.check_text` проверяет её на
 упоминания путей, которых нет в репозитории — нарушение не роняет вердикт,
 только заменяет объяснение нейтральной пометкой (`_guard_explanation`).
 """
@@ -26,40 +27,44 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 from pko.errors import LlmError
 from pko.extractors.base import Tree
 from pko.extractors.runner import Extraction
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
+from pko.progress.agent_tools import TOOL_SCHEMAS, ToolBox
 from pko.progress.schema import EvidenceRef, ItemVerdict, PlanItem, STATUSES, UnclaimedGroup
 from pko.progress.verify import verify_evidence
 from pko.report.guard import check_text
 
-_SYSTEM = (
-    "Ты сравниваешь пункты плана команды с кандидатами кода из целевого репозитория "
-    "и оцениваешь прогресс. Для каждого пункта плана верни вердикт статуса "
-    '(один из "DONE", "PARTIAL", "NOT_STARTED", "UNCLEAR") и, если статус не '
-    '"NOT_STARTED", список конкретных ссылок на код (путь и строка из переданных '
-    "кандидатов), которые это подтверждают. Отвечай строго одним JSON-объектом вида "
-    '{"verdicts": [{"item_id": "...", "status": "...", "explanation": "...", '
-    '"evidence": [{"path": "...", "line": N, "basis": "..."}]}]}. '
-    "Используй только переданные item_id и только пути/строки из переданных "
-    "кандидатов кода. basis — короткое основание своими словами, обязательно "
-    "содержащее конкретное имя (функции, класса, эндпоинта, файла), которое "
-    "реально стоит рядом с указанной строкой — по нему проверяется ссылка. Если "
-    "подтверждающего кода нет — верни NOT_STARTED с пустым evidence, не выдумывай "
-    "ссылки. Не добавляй пояснений вне JSON."
+# Бюджет шагов агента на один пункт плана. Пунктов в плане обычно немного
+# (единицы-десятки), но при N пунктах это до N×DEFAULT_MAX_STEPS вызовов LLM
+# за прогон — сознательный компромисс между полнотой поиска и стоимостью,
+# настраиваемый снаружи (`run_progress(..., max_steps=...)`).
+DEFAULT_MAX_STEPS = 30
+
+_AGENT_SYSTEM = (
+    "Ты — агент, который проверяет, реализован ли в репозитории конкретный пункт плана "
+    "команды. План описан бизнес-языком (идея, название функциональности), а не терминами "
+    "кода — не жди буквальных совпадений, подбирай ключевые слова и синонимы сам. "
+    "У тебя есть инструменты, только на чтение, по коду репозитория на конкретном коммите — "
+    "используй их через tool calling. Исследуй репозиторий и, когда достаточно уверен, дай "
+    "финальный ответ обычным текстом (не вызовом инструмента) — один JSON-объект: "
+    '{"status": "DONE"|"PARTIAL"|"NOT_STARTED"|"UNCLEAR", "explanation": "...", '
+    '"evidence": [{"path": "...", "line": N, "basis": "..."}]}. '
+    "evidence — только реальные путь и строка из того, что ты действительно прочитал "
+    "инструментами; basis — короткое основание своими словами, обязательно содержащее "
+    "конкретное имя (функции, класса, эндпоинта, файла), которое реально стоит рядом со "
+    "строкой — по нему проверяется ссылка. Если подтверждения не нашёл — верни NOT_STARTED "
+    "с пустым evidence, не выдумывай ссылки. За один ход — либо вызов инструмента, либо "
+    "финальный текстовый ответ, не оба сразу."
 )
 
-_JSON_BLOCK = re.compile(r"\{[\s\S]*\}")
-
-# Столько уникальных путей-кандидатов передаём модели за один вызов — тот же
-# порядок величины, что и candidate-cap в assemble/llm_map.py.
-MAX_CANDIDATES = 400
-# Сколько кратких оснований факта показываем на один путь, чтобы не раздувать
-# промпт файлами с сотнями находок.
-MAX_BASES_PER_PATH = 4
+_JSON_OBJECT = re.compile(r"\{[\s\S]*\}")
+_MAX_MALFORMED = 3
+_REPEAT_STOP = 3
 
 
 @dataclass
@@ -75,81 +80,35 @@ class MatchResult:
 
 def match_plan(
     items: list[PlanItem],
-    extraction: Extraction,
     tree: Tree,
     spec: ModelSpec | None,
     client: ChatClient | None = None,
+    max_steps: int = DEFAULT_MAX_STEPS,
 ) -> MatchResult:
-    """Сопоставить пункты плана с кодом. Без endpoint'а/при сбое — пустой результат.
+    """Сопоставить пункты плана с кодом — отдельный агентный цикл на каждый пункт.
 
-    `client` — тестовая инъекция по образцу `pko.progress.plan_extract.extract_plan`
-    и `pko.agent.loop.run_scout`: без неё `complete()` читает/пишет реальный
-    `~/.pko/llm-cache`.
+    `client` — тестовая инъекция по образцу `pko.progress.plan_extract.extract_plan`:
+    без неё `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
     """
     if spec is None:
         return MatchResult(notes=["Matcher не настроен: сопоставление не выполнено"])
     if not items:
         return MatchResult(notes=["Пунктов плана нет — сопоставлять нечего"])
 
-    candidates = _candidate_paths(extraction)
-    if not candidates:
-        return MatchResult(notes=["В целевом репозитории нет кандидатов кода"])
-
-    known_ids = {item.id for item in items}
-    user = (
-        "Пункты плана:\n" + json.dumps([i.to_dict() for i in items], ensure_ascii=False, indent=2)
-        + "\n\nКандидаты кода (путь и краткие основания найденных фактов):\n"
-        + json.dumps(candidates, ensure_ascii=False, indent=2)
-    )
-
-    chat_client = client if client is not None else ChatClient(spec=spec)
-    try:
-        raw = chat_client.complete(system=_SYSTEM, user=user, max_tokens=6000)
-    except LlmError as exc:
-        return MatchResult(notes=[f"Matcher недоступен: {exc.message}"])
-
-    parsed = _parse(raw)
-    if parsed is None:
-        return MatchResult(notes=["Ответ matcher не является JSON — сопоставление не выполнено"])
-
     verdicts: list[ItemVerdict] = []
-    dropped = 0
+    notes: list[str] = []
     ungrounded = 0
-    rejected_explanations = 0
-    seen_ids: set[str] = set()
-    for raw_verdict in parsed:
-        verdict = _validate_verdict(raw_verdict, known_ids, seen_ids, tree)
-        if verdict is None:
-            dropped += 1
-            continue
-        seen_ids.add(verdict.item_id)
-        if _guard_explanation(verdict, tree):
-            rejected_explanations += 1
+    for item in items:
+        verdict, item_notes = _investigate_item(item, tree, spec, client, max_steps)
         verdicts.append(verdict)
+        notes.extend(item_notes)
         if verdict.status in ("DONE", "PARTIAL") and not verdict.is_grounded:
             ungrounded += 1
 
-    missing = known_ids - seen_ids
-    for item_id in sorted(missing):
-        verdicts.append(ItemVerdict(
-            item_id=item_id, status="UNCLEAR",
-            explanation="Matcher не вернул вердикт по этому пункту плана.",
-        ))
-
-    notes: list[str] = []
-    if dropped:
-        notes.append(f"Отброшено вердиктов с некорректными полями: {dropped}")
-    if missing:
-        notes.append(f"Пунктов без вердикта от matcher (помечены UNCLEAR): {len(missing)}")
     if ungrounded:
         notes.append(
             f"Вердиктов DONE/PARTIAL без единой подтверждённой ссылки на код: {ungrounded} — "
-            "модель утверждает прогресс, но код это не показывает; нужна ручная проверка"
-        )
-    if rejected_explanations:
-        notes.append(
-            f"Объяснений отклонено сторожем текста (упоминали путь вне репозитория): "
-            f"{rejected_explanations} — сам вердикт и evidence это не затронуло"
+            "агент утверждает прогресс, но код это не показывает; нужна ручная проверка"
         )
     return MatchResult(verdicts=verdicts, source="llm", notes=notes)
 
@@ -177,30 +136,119 @@ def find_unclaimed_paths(
     ]
 
 
-def _candidate_paths(extraction: Extraction) -> list[dict]:
-    by_path: dict[str, list[str]] = {}
-    for fact in extraction.facts:
-        if not fact.path:
+def _investigate_item(
+    item: PlanItem,
+    tree: Tree,
+    spec: ModelSpec,
+    client: ChatClient | None,
+    max_steps: int,
+) -> tuple[ItemVerdict, list[str]]:
+    """Изолированный агентный цикл на один пункт плана.
+
+    Возвращает вердикт и заметки о ходе расследования (пустые при чистом
+    завершении через `final`).
+    """
+    chat_client = client if client is not None else ChatClient(spec=spec)
+    tools = ToolBox(tree)
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": _AGENT_SYSTEM},
+        {"role": "user", "content": _item_brief(item)},
+    ]
+    notes: list[str] = []
+    recent_calls: list[tuple[tuple[str, str], ...]] = []
+    malformed = 0
+
+    for step in range(1, max(1, max_steps) + 1):
+        try:
+            result = chat_client.chat(messages, tools=TOOL_SCHEMAS, max_tokens=1500)
+        except LlmError as exc:
+            notes.append(f"{item.id}: matcher недоступен на шаге {step}: {exc.message}")
+            return _unclear(item, "LLM недоступен во время исследования"), notes
+
+        if result.tool_calls:
+            signature = tuple(sorted(
+                (str((c.get("function") or {}).get("name") or ""),
+                 str((c.get("function") or {}).get("arguments") or ""))
+                for c in result.tool_calls
+            ))
+            recent_calls.append(signature)
+            if len(recent_calls) >= _REPEAT_STOP and len(set(recent_calls[-_REPEAT_STOP:])) == 1:
+                notes.append(f"{item.id}: остановлено — {_REPEAT_STOP} одинаковых вызова инструмента подряд")
+                return _unclear(item, f"агент повторил один и тот же вызов {_REPEAT_STOP} раза подряд"), notes
+
+            messages.append({
+                "role": "assistant",
+                "content": result.text or None,
+                "tool_calls": result.tool_calls,
+            })
+            for call in result.tool_calls:
+                function = call.get("function") or {}
+                name = str(function.get("name") or "")
+                raw_args = function.get("arguments") or "{}"
+                try:
+                    args = json.loads(raw_args)
+                except json.JSONDecodeError:
+                    tool_content = f"аргументы инструмента не являются валидным JSON: {raw_args!r}"
+                else:
+                    outcome = tools.call(name, args if isinstance(args, dict) else {})
+                    tool_content = outcome.content
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": str(call.get("id") or ""),
+                    "content": tool_content,
+                })
             continue
-        bases = by_path.setdefault(fact.path, [])
-        basis = fact.basis or fact.key
-        if basis and basis not in bases and len(bases) < MAX_BASES_PER_PATH:
-            bases.append(basis)
-    paths = sorted(by_path)[:MAX_CANDIDATES]
-    return [{"path": p, "facts": by_path[p]} for p in paths]
+
+        final_obj = _extract_json_object(result.text)
+        if final_obj is None:
+            malformed += 1
+            if malformed >= _MAX_MALFORMED:
+                notes.append(f"{item.id}: неразбираемый ответ агента {malformed} раз подряд — остановлено")
+                return _unclear(item, "агент не вернул распознаваемый JSON"), notes
+            messages.append({"role": "assistant", "content": result.text})
+            messages.append({
+                "role": "user",
+                "content": "Финальный ответ должен быть одним JSON-объектом: "
+                           "{status, explanation, evidence}. Если хочешь продолжить поиск — вызови инструмент.",
+            })
+            continue
+
+        return _parse_final(item, final_obj, tree), notes
+
+    notes.append(f"{item.id}: бюджет шагов исчерпан ({max_steps}) без финального ответа")
+    return _unclear(item, f"бюджет шагов исчерпан ({max_steps}) — расследование не завершено"), notes
 
 
-def _validate_verdict(
-    raw: object, known_ids: set[str], seen_ids: set[str], tree: Tree
-) -> ItemVerdict | None:
+def _item_brief(item: PlanItem) -> str:
+    parts = [f"Пункт плана: {item.title}"]
+    if item.stage:
+        parts.append(f"Этап: {item.stage}")
+    if item.description:
+        parts.append(f"Описание: {item.description}")
+    return "\n".join(parts)
+
+
+def _unclear(item: PlanItem, reason: str) -> ItemVerdict:
+    return ItemVerdict(item_id=item.id, status="UNCLEAR", explanation=reason, evidence=[])
+
+
+def _extract_json_object(raw: str) -> dict | None:
+    match = _JSON_OBJECT.search(raw or "")
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _parse_final(item: PlanItem, raw: object, tree: Tree) -> ItemVerdict:
     if not isinstance(raw, dict):
-        return None
-    item_id = str(raw.get("item_id") or "").strip()
-    if item_id not in known_ids or item_id in seen_ids:
-        return None
+        return _unclear(item, "final не является объектом")
     status = str(raw.get("status") or "").strip().upper()
     if status not in STATUSES:
-        return None
+        status = "UNCLEAR"
     explanation = str(raw.get("explanation") or "").strip()
 
     evidence: list[EvidenceRef] = []
@@ -221,11 +269,13 @@ def _validate_verdict(
             verified=result.ok, reason=result.reason,
         ))
 
-    return ItemVerdict(item_id=item_id, status=status, explanation=explanation, evidence=evidence)
+    verdict = ItemVerdict(item_id=item.id, status=status, explanation=explanation, evidence=evidence)
+    _guard_explanation(verdict, tree)
+    return verdict
 
 
 def _guard_explanation(verdict: ItemVerdict, tree: Tree) -> bool:
-    """Отклонить объяснение matcher'а, если оно упоминает путь вне репозитория.
+    """Отклонить объяснение агента, если оно упоминает путь вне репозитория.
 
     Возвращает `True`, если объяснение заменено. `evidence` уже проверена
     отдельно (`verify_evidence`) — эта проверка про свободный текст, который
@@ -243,15 +293,3 @@ def _guard_explanation(verdict: ItemVerdict, tree: Tree) -> bool:
     reasons = "; ".join(v.render() for v in violations)
     verdict.explanation = f"(объяснение отклонено сторожем: {reasons})"
     return True
-
-
-def _parse(raw: str) -> list[dict] | None:
-    match = _JSON_BLOCK.search(raw or "")
-    if not match:
-        return None
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return None
-    verdicts = data.get("verdicts") if isinstance(data, dict) else None
-    return verdicts if isinstance(verdicts, list) else None

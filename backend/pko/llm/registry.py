@@ -4,14 +4,18 @@
 отчётах, кеше и логах.
 
 Роли:
-  * `planner` — текст слайдов PPTX → JSON плана;
-  * `matcher` — пункт плана + кандидаты кода целевого репозитория → JSON вердикта.
+  * `planner`  — текст слайдов PPTX → JSON плана;
+  * `matcher`  — пункт плана + инструменты поиска по коду → JSON вердикта;
+  * `reporter` — вердикты по всем пунктам плана → связный текстовый вывод.
 
-Обе по умолчанию используют общие `PKO_ASSEMBLER_*` (унаследованное имя —
+Все три по умолчанию используют общие `PKO_ASSEMBLER_*` (унаследованное имя —
 исторически это была роль сборщика в другом инструменте; здесь это просто
-общий дефолт для «вернуть JSON по структурированному входу», чтобы обе роли
-работали сразу на одной уже настроенной паре endpoint/ключ). `PKO_PLANNER_*`/
-`PKO_MATCHER_*` переопределяют его, если ролям нужны разные модели.
+общий дефолт для «вернуть текст/JSON по структурированному входу», чтобы все
+роли работали сразу на одной уже настроенной паре endpoint/ключ).
+`PKO_PLANNER_*`/`PKO_MATCHER_*`/`PKO_REPORTER_*` переопределяют его по
+отдельности, если какой-то роли нужна другая модель. В отличие от planner и
+matcher, `reporter` необязателен: без него отчёт собирается как обычно,
+просто без сводного вывода.
 
 Endpoint роли можно переопределить с командной строки, но ключ берётся только
 из переменной окружения: значение, переданное флагом, осело бы в истории
@@ -38,6 +42,12 @@ _ENV = {
         "base_url": ("PKO_MATCHER_BASE_URL", "PKO_ASSEMBLER_BASE_URL", "GLM_52_API", "GLM_51_API"),
         "model": ("PKO_MATCHER_MODEL", "PKO_ASSEMBLER_MODEL", "GLM_MODEL_NAME"),
         "api_key": ("PKO_MATCHER_API_KEY", "PKO_ASSEMBLER_API_KEY", "GLM_API_KEY"),
+        "default_model": "GLM-5.2",
+    },
+    "reporter": {
+        "base_url": ("PKO_REPORTER_BASE_URL", "PKO_ASSEMBLER_BASE_URL", "GLM_52_API", "GLM_51_API"),
+        "model": ("PKO_REPORTER_MODEL", "PKO_ASSEMBLER_MODEL", "GLM_MODEL_NAME"),
+        "api_key": ("PKO_REPORTER_API_KEY", "PKO_ASSEMBLER_API_KEY", "GLM_API_KEY"),
         "default_model": "GLM-5.2",
     },
 }

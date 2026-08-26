@@ -26,6 +26,7 @@ from pko.git.repo import GitRepo
 from pko.git.url import parse_repo_url
 from pko.llm.registry import get_spec
 from pko.output.publisher import write_outputs
+from pko.progress.matcher import DEFAULT_MAX_STEPS
 from pko.progress.pipeline import run_progress
 from pko.progress.target_repo import load_target, repo_name
 from pko.render.progress_report import render_progress_report
@@ -66,6 +67,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_source_args(progress)
     progress.add_argument("--out", default=str(DEFAULT_PROGRESS_OUT),
                           help="каталог для отчёта о прогрессе")
+    progress.add_argument("--max-steps", type=int, default=DEFAULT_MAX_STEPS,
+                          help=f"потолок шагов агента matcher на один пункт плана "
+                               f"(по умолчанию {DEFAULT_MAX_STEPS})")
     progress.set_defaults(handler=cmd_progress)
 
     serve = sub.add_parser("serve", help="поднять локальный веб-интерфейс")
@@ -111,6 +115,10 @@ def cmd_progress(args: argparse.Namespace) -> int:
                  "роли planner/matcher используют его по умолчанию; либо настройте "
                  "PKO_PLANNER_*/PKO_MATCHER_* отдельно.",
         )
+    # reporter необязателен: без него сводного вывода не будет, но остальной
+    # отчёт соберётся как обычно — в отличие от planner/matcher, здесь не
+    # ошибка запуска.
+    reporter = get_spec("reporter")
 
     repo, name = _open_repo(args)
     branch = args.branch or repo.default_branch()
@@ -118,7 +126,10 @@ def cmd_progress(args: argparse.Namespace) -> int:
     print(f"Репозиторий: {name} · ветка: {target.branch} · коммит {target.sha[:8]}")
     print(f"План: {plan_path.name}")
 
-    model = run_progress(plan_path, name, target, planner, matcher_spec)
+    model = run_progress(
+        plan_path, name, target, planner, matcher_spec,
+        max_steps=args.max_steps, reporter=reporter,
+    )
     for gap in model.gaps:
         print(f"  {gap}")
     print(f"Пунктов плана: {len(model.items)}")

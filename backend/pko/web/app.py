@@ -68,6 +68,8 @@ async def api_progress(
                  "перед запуском `pko serve` — роли planner/matcher используют его по "
                  "умолчанию; либо настройте PKO_PLANNER_*/PKO_MATCHER_* отдельно.",
         )
+    # Необязательная роль — без неё просто не будет сводного вывода в отчёте.
+    reporter = get_spec("reporter")
 
     with tempfile.TemporaryDirectory(prefix="pko-progress-upload-") as tmp:
         plan_path = Path(tmp) / Path(plan.filename).name
@@ -75,7 +77,7 @@ async def api_progress(
 
         git_repo, name = open_repo_source(repo.strip(), branch=branch.strip() or None)
         target = load_target(git_repo, branch.strip() or None)
-        model = run_progress(plan_path, name, target, planner, matcher_spec)
+        model = run_progress(plan_path, name, target, planner, matcher_spec, reporter=reporter)
 
     return JSONResponse({
         "html": render_progress_report(model),

@@ -33,6 +33,7 @@ class ChatResult:
     text: str
     usage: dict[str, Any]
     from_cache: bool = False
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 # Бюджет ответа по умолчанию. Прежние 2000 не оставляли места тексту, когда
@@ -84,12 +85,15 @@ class ChatClient:
         return text
 
     def chat(self, messages: list[dict[str, Any]], temperature: float = 0.0,
-             max_tokens: int = DEFAULT_MAX_TOKENS) -> ChatResult:
+             max_tokens: int = DEFAULT_MAX_TOKENS,
+             tools: list[dict[str, Any]] | None = None) -> ChatResult:
         """Обмен с произвольной историей — основа агентского цикла.
 
-        Отличается от `complete` только формой входа и тем, что возвращает ещё и
-        расход токенов. Кеш общий: ключ считается по всему payload, поэтому
-        повторный прогон того же коммита не тратит ни одного вызова.
+        `tools` — нативный OpenAI-совместимый tool calling: схемы уходят в
+        `tools`/`tool_choice="auto"`, модель сама решает, вызывать инструмент
+        или ответить текстом. Кеш общий: ключ считается по всему payload
+        (включая `tools`), поэтому повторный прогон того же коммита не тратит
+        ни одного вызова.
         """
         payload: dict[str, Any] = {
             "model": self.spec.upstream_model,
@@ -97,20 +101,28 @@ class ChatClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
         if self.spec.extra_body:
             payload.update(self.spec.extra_body)
 
         key = self._cache_key(payload)
         cached = self._read_cache(key)
         if cached is not None:
-            self._require_text(cached, {})
-            return ChatResult(text=cached, usage={}, from_cache=True)
+            envelope = self._decode_chat_cache(cached)
+            if envelope is not None:
+                text, tool_calls = envelope
+                self._require_chat_result(text, tool_calls, {})
+                return ChatResult(text=text, usage={}, from_cache=True, tool_calls=tool_calls)
+            # Кеш с прошлого протокола (голый текст, не JSON-конверт) —
+            # трактуем как промах, не мигрируем и не роняем прогон.
 
         data = self._request("POST", "/chat/completions", payload)
-        text = self._text_of(data)
-        self._write_cache(key, text)
+        text, tool_calls = self._message_of(data)
+        self._write_cache(key, json.dumps({"content": text, "tool_calls": tool_calls}, ensure_ascii=False))
         usage = data.get("usage") if isinstance(data, dict) else None
-        return ChatResult(text=text, usage=usage if isinstance(usage, dict) else {})
+        return ChatResult(text=text, usage=usage if isinstance(usage, dict) else {}, tool_calls=tool_calls)
 
     # --- разбор ответа ----------------------------------------------------
     def _text_of(self, data: Any) -> str:
@@ -149,6 +161,46 @@ class ChatClient:
             f"Модель {self.spec.model} (роль {self.spec.role}) вернула пустой ответ.",
             hint,
         )
+
+    def _message_of(self, data: Any) -> tuple[str, list[dict[str, Any]] | None]:
+        """Текст и/или tool_calls ответа для `chat()`.
+
+        Пустой `content` при непустом `tool_calls` — штатная форма ответа при
+        вызове инструмента (многие OpenAI-совместимые бэкенды отдают именно
+        `content: null`), не отказ. Отказ — только когда пусты оба поля разом.
+        """
+        try:
+            message = data["choices"][0]["message"]
+            finish = str(data["choices"][0].get("finish_reason") or "")
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LlmError(
+                f"Неожиданный ответ модели {self.spec.model}.",
+                "Проверьте, что endpoint OpenAI-совместим.",
+            ) from exc
+
+        text = str(message.get("content") or "").strip()
+        raw_tool_calls = message.get("tool_calls")
+        tool_calls = raw_tool_calls if isinstance(raw_tool_calls, list) and raw_tool_calls else None
+        self._require_chat_result(text, tool_calls, {"finish_reason": finish})
+        return text, tool_calls
+
+    def _require_chat_result(self, text: str, tool_calls: list[dict[str, Any]] | None,
+                              context: dict[str, str]) -> None:
+        if tool_calls or (text and text.strip()):
+            return
+        self._require_text(text, context)
+
+    def _decode_chat_cache(self, cached: str) -> tuple[str, list[dict[str, Any]] | None] | None:
+        try:
+            envelope = json.loads(cached)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(envelope, dict):
+            return None
+        text = str(envelope.get("content") or "")
+        raw_tool_calls = envelope.get("tool_calls")
+        tool_calls = raw_tool_calls if isinstance(raw_tool_calls, list) and raw_tool_calls else None
+        return text, tool_calls
 
     # --- внутреннее -------------------------------------------------------
     def _request(self, method: str, path: str, payload: dict[str, Any] | None) -> Any:

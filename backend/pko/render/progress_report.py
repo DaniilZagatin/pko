@@ -4,12 +4,19 @@
 общая CSS) — один самодостаточный файл без внешних ресурсов. Домен другой
 (вердикт по пункту плана, а не паспорт объекта управления), поэтому вёрстка
 собственная, а не переиспользование `render/passports.py`/`render/taxonomy.py`.
+
+Проверка evidence (`verify_evidence`) и текста (`_guard_explanation`) в
+`progress.matcher` по-прежнему решает, что вообще может попасть сюда —
+неподтверждённая evidence в отчёт просто не проходит. Но сам факт «это было
+проверено» здесь никак не показывается: ни бейджей «подтверждено/не
+подтверждено», ни зачёркивания, ни причины отказа рядом со ссылкой. Читателю
+показывается вердикт и то, чем он подкреплён, а не механика проверки.
 """
 
 from __future__ import annotations
 
 from pko.progress.schema import EvidenceRef, ItemVerdict, ProgressModel
-from pko.render.base import esc, page
+from pko.render.base import authorship, esc, page
 
 _STATUS_LABELS = {
     "DONE": ("Сделано", "green"),
@@ -43,14 +50,7 @@ _EXTRA_CSS = """
   letter-spacing: 0.04em; margin-top: 0.15rem;
 }
 .item-card .item-explanation { font-size: 0.86rem; color: var(--text-secondary); margin-top: 0.4rem; }
-.ungrounded-warning {
-  display: inline-block; margin-top: 0.4rem; font-size: 0.76rem; font-weight: 600;
-  color: var(--red); background: var(--red-light); padding: 0.15rem 0.5rem; border-radius: 4px;
-}
 .evidence-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
-.evidence-verified { color: var(--text-secondary); }
-.evidence-rejected { color: var(--text-secondary); opacity: 0.75; }
-.evidence-rejected .evidence-where { text-decoration: line-through; }
 .unclaimed-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .unclaimed-item {
   padding: 0.5rem 0.85rem; background: var(--bg); border-radius: 8px; font-size: 0.85rem;
@@ -60,6 +60,7 @@ _EXTRA_CSS = """
   color: var(--text-secondary); font-size: 0.78rem; margin-top: 0.15rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+.summary-text { font-size: 0.95rem; line-height: 1.65; }
 """
 
 
@@ -71,7 +72,8 @@ def render_progress_report(model: ProgressModel) -> str:
     badge = f"{ratio:.0%} пунктов плана сделано"
 
     body = (
-        _summary_bar(model, counts, ratio)
+        _summary_text_section(model)
+        + _summary_bar(model, counts, ratio)
         + _items_by_status(model)
         + _unclaimed_section(model)
         + _gaps_section(model)
@@ -82,6 +84,23 @@ def render_progress_report(model: ProgressModel) -> str:
     )
     html = page(title=title, subtitle=subtitle, badge=badge, body=body, footer=footer)
     return html.replace("</style>", _EXTRA_CSS + "</style>")
+
+
+def _summary_text_section(model: ProgressModel) -> str:
+    if not model.summary:
+        return ""
+    return f"""
+  <div class="section">
+    <div class="section-header">
+      <div class="icon" style="background:var(--accent-light);color:var(--accent);">✦</div>
+      <h2>Итог</h2>
+    </div>
+    <div class="section-body">
+      <div class="summary-text">{esc(model.summary)}</div>
+      <div class="authorship">{authorship(model.summary_source)}</div>
+    </div>
+  </div>
+"""
 
 
 def _summary_bar(model: ProgressModel, counts: dict[str, int], ratio: float) -> str:
@@ -134,20 +153,16 @@ def _item_card(verdict: ItemVerdict, model: ProgressModel) -> str:
     item = model.items.get(verdict.item_id)
     title = item.title if item else verdict.item_id
     stage = item.stage if item else ""
-    warning = ""
-    if verdict.status in ("DONE", "PARTIAL") and not verdict.is_grounded:
-        warning = (
-            '<div class="ungrounded-warning">Вердикт не подтверждён ни одной '
-            "проверенной ссылкой на код — требуется ручная проверка</div>"
-        )
-    evidence_html = "".join(_evidence_row(e) for e in verdict.evidence)
+    # Показываем только то, что реально прошло проверку (verify_evidence) —
+    # неподтверждённая ссылка не рисуется вовсе, а не помечается как отклонённая:
+    # читателю нужен результат, а не механика того, как его перепроверяли.
+    evidence_html = "".join(_evidence_row(e) for e in verdict.verified_evidence)
     evidence_block = f'<div class="evidence-list">{evidence_html}</div>' if evidence_html else ""
     return f"""
     <div class="item-card">
       <div class="item-title">{esc(title)}</div>
       {f'<div class="item-stage">{esc(stage)}</div>' if stage else ""}
       <div class="item-explanation">{esc(verdict.explanation)}</div>
-      {warning}
       {evidence_block}
     </div>
 """
@@ -155,11 +170,9 @@ def _item_card(verdict: ItemVerdict, model: ProgressModel) -> str:
 
 def _evidence_row(ev: EvidenceRef) -> str:
     where = f"{ev.path}:{ev.line}" if ev.line else ev.path
-    css_class = "evidence-verified" if ev.verified else "evidence-rejected"
-    status_note = "" if ev.verified else f' <span class="side-note">({esc(ev.reason)})</span>'
     return (
-        f'<div class="evidence-row {css_class}">{esc(ev.basis)} '
-        f'<span class="evidence-where">{esc(where)}</span>{status_note}</div>'
+        f'<div class="evidence-row">{esc(ev.basis)} '
+        f'<span class="evidence-where">{esc(where)}</span></div>'
     )
 
 

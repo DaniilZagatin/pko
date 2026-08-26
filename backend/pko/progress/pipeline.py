@@ -14,8 +14,9 @@ from pathlib import Path
 from pko.errors import PkoError
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
-from pko.progress.matcher import find_unclaimed_paths, match_plan
+from pko.progress.matcher import DEFAULT_MAX_STEPS, find_unclaimed_paths, match_plan
 from pko.progress.schema import ProgressModel
+from pko.progress.summarize import summarize_progress
 from pko.progress.target_repo import TargetRepo
 
 
@@ -27,17 +28,24 @@ def run_progress(
     matcher_spec: ModelSpec,
     planner_client: ChatClient | None = None,
     matcher_client: ChatClient | None = None,
+    max_steps: int = DEFAULT_MAX_STEPS,
+    reporter: ModelSpec | None = None,
+    reporter_client: ChatClient | None = None,
 ) -> ProgressModel:
-    """Собрать ProgressModel: PPTX → пункты плана → сопоставление с кодом.
+    """Собрать ProgressModel: PPTX → пункты плана → сопоставление с кодом → сводный вывод.
 
     `python-pptx` — единственная тяжёлая зависимость на этом пути, поэтому
     импорт `pptx_reader`/`plan_extract` остаётся отложенным здесь, а не
     только в CLI: веб-эндпоинт тоже не должен требовать пакет только ради
     импорта модуля.
 
-    `planner_client`/`matcher_client` — та же инъекция для тестов, что и в
-    `extract_plan`/`match_plan`: без нёе `ChatClient` по умолчанию читает и
-    пишет реальный `~/.pko/llm-cache`.
+    `planner_client`/`matcher_client`/`reporter_client` — та же инъекция для
+    тестов, что и в `extract_plan`/`match_plan`/`summarize_progress`: без неё
+    `ChatClient` по умолчанию читает и пишет реальный `~/.pko/llm-cache`.
+
+    `reporter`, в отличие от `planner`/`matcher`, необязателен — без него
+    (`None`) сводный вывод просто не формируется, весь остальной отчёт
+    собирается как обычно.
     """
     try:
         from pko.progress.pptx_reader import read_deck
@@ -57,12 +65,12 @@ def run_progress(
         )
 
     match_result = match_plan(
-        plan_result.items, target.extraction, target.tree, matcher_spec, client=matcher_client
+        plan_result.items, target.tree, matcher_spec, client=matcher_client, max_steps=max_steps
     )
 
     unclaimed = find_unclaimed_paths(target.extraction, match_result.verdicts)
     generated_at = time.strftime("%Y-%m-%d %H:%M")
-    return ProgressModel(
+    model = ProgressModel(
         meta={
             "repo": repo_name, "branch": target.branch, "commit": target.sha,
             "plan_source": plan_path.name, "generated_at": generated_at,
@@ -72,3 +80,9 @@ def run_progress(
         unclaimed=unclaimed,
         gaps=plan_result.notes + match_result.notes,
     )
+
+    summary = summarize_progress(model, reporter, client=reporter_client)
+    model.summary = summary.text
+    model.summary_source = summary.source
+    model.gaps.extend(summary.notes)
+    return model

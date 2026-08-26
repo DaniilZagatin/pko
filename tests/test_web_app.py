@@ -85,13 +85,16 @@ class WebAppTest(unittest.TestCase):
         plan_answer = json.dumps({"items": [
             {"id": "tasks-api", "title": "API постановки задач", "source_slide": 2},
         ]})
-        match_answer = json.dumps({"verdicts": [
-            {"item_id": "tasks-api", "status": "DONE",
-             "explanation": "Эндпоинт постановки задачи реализован.",
-             "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
-                           "basis": "функция start_task ставит задачу в обработку"}]},
-        ]})
-        ChatClient._request = scripted(plan_answer, match_answer)
+        # Агентный matcher: один пункт плана — один изолированный цикл, модель
+        # сразу отвечает финальным текстом (без tool_calls).
+        match_answer = json.dumps({
+            "status": "DONE",
+            "explanation": "Эндпоинт постановки задачи реализован.",
+            "evidence": [{"path": "backend/src/api/v1/router.py", "line": 7,
+                         "basis": "функция start_task ставит задачу в обработку"}],
+        })
+        summary_answer = "Задача постановки задач реализована и подтверждена кодом."
+        ChatClient._request = scripted(plan_answer, match_answer, summary_answer)
 
         resp = self._post(repo=str(ensure_fixture()))
         self.assertEqual(resp.status_code, 200, resp.text)
@@ -99,6 +102,7 @@ class WebAppTest(unittest.TestCase):
         self.assertEqual(data["counts"]["DONE"], 1)
         self.assertEqual(data["progress_ratio"], 1.0)
         self.assertIn("API постановки задач", data["html"])
+        self.assertIn("реализована и подтверждена", data["html"])
         self.assertIn("backend/src/api/v1/router.py:7", data["html"])
 
     def test_missing_plan_file_is_a_validation_error(self):
