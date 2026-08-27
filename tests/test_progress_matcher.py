@@ -93,9 +93,11 @@ class MatcherAgentTest(unittest.TestCase):
         self.addCleanup(setattr, ChatClient, "_request", self._original)
         self.client = ChatClient(spec=SPEC, use_cache=False)
 
-    def _run(self, *answers, slides=SLIDES, max_steps=DEFAULT_MAX_STEPS):
+    def _run(self, *answers, slides=SLIDES, max_steps=DEFAULT_MAX_STEPS, on_verdict=None):
         ChatClient._request = scripted(*answers)
-        return run_agent(slides, self.tree, SPEC, client=self.client, max_steps=max_steps)
+        return run_agent(
+            slides, self.tree, SPEC, client=self.client, max_steps=max_steps, on_verdict=on_verdict
+        )
 
     def test_no_spec_returns_empty_with_note(self):
         result = run_agent(SLIDES, self.tree, spec=None)
@@ -135,6 +137,22 @@ class MatcherAgentTest(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(result.items[0].id, "tasks-api")
 
+    def test_on_verdict_fires_once_per_accepted_submission_only(self):
+        seen: list[tuple[str, str]] = []
+        self._run(
+            submit("ghost", "Выдуманная задача", 99, "DONE"),
+            tool_call("list_files", glob="*.py"),
+            submit("tasks-api", "Постановка задач в обработку", 1, "DONE",
+                  "Эндпоинт постановки задачи реализован.", ROUTER_EVIDENCE),
+            submit("billing", "Биллинг подписок", 1, "NOT_STARTED",
+                  "Кода для биллинга подписок не нашлось."),
+            finish(),
+            on_verdict=lambda item, verdict: seen.append((item.id, verdict.status)),
+        )
+        # "ghost" (source_slide=99, неизвестный слайд) отклонён — колбэк по
+        # нему не зовётся; list_files — не submit_verdict, тоже мимо колбэка.
+        self.assertEqual(seen, [("tasks-api", "DONE"), ("billing", "NOT_STARTED")])
+
     def test_missing_item_id_gets_generated(self):
         result = self._run(
             tool_call("submit_verdict", title="Без id", source_slide=1,
@@ -153,6 +171,18 @@ class MatcherAgentTest(unittest.TestCase):
         self.assertEqual(len(result.items), 1)
         self.assertEqual(len(result.verdicts), 1)
         self.assertEqual(result.verdicts[0].status, "DONE")
+
+    def test_progress_is_clamped_to_0_100(self):
+        result = self._run(
+            submit("over", "Пункт с большим progress", 1, "PARTIAL", "x", progress=150),
+            submit("under", "Пункт с отрицательным progress", 1, "PARTIAL", "x", progress=-5),
+            submit("missing", "Пункт без progress", 1, "PARTIAL", "x"),
+            finish(),
+        )
+        by_id = {v.item_id: v for v in result.verdicts}
+        self.assertEqual(by_id["over"].progress, 100)
+        self.assertEqual(by_id["under"].progress, 0)
+        self.assertEqual(by_id["missing"].progress, 0)
 
     def test_fabricated_evidence_path_is_not_verified_but_kept(self):
         result = self._run(

@@ -1,34 +1,33 @@
-"""Веб-интерфейс `pko progress`: одна страница + один эндпоинт.
+"""Веб API `pko progress`: асинхронный анализ + живой прогресс по SSE.
 
 Локальный инструмент: сервер поднимается на своей машине, git-доступ — через
 уже настроенный SSH-agent (см. README). Логика пайплайна не дублируется с
 CLI — обе стороны зовут один и тот же `pko.progress.pipeline.run_progress`,
 поэтому веб и `pko progress` не могут разойтись в поведении.
 
-Бэкенд (`backend/pko/`) и фронтенд (`frontend/`) — раздельные каталоги
-верхнего уровня репозитория: страница не является Python package data, `pip
-install` пакета её не тянет. Путь к ней вычисляется относительно корня
-репозитория, а не пакета — оба каталога живут рядом по построению.
+UI — отдельный Next.js-проект `frontend-web/` (свой dev/прод-процесс, ходит
+сюда через `/api/*`), этот модуль отдаёт только JSON и SSE, HTML не рендерит и
+не раздаёт статику. Старая страница `frontend/index.html` и её синхронный
+`POST /api/progress` (единственный запрос на весь прогон, блокирующий до
+готовности) удалены вместе с этим модулем — реальный прогон может занимать от
+секунд до ~15 минут только на клонирование репозитория
+(`progress/target_repo.py`, `network_timeout=900`) плюс агентная сессия до 60
+шагов, и ждать это за одним запросом без обратной связи не годится.
 """
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
+import json
+import queue
 
+import anyio
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from pko.errors import PkoError
 from pko.llm.registry import get_spec
-from pko.progress.pipeline import run_progress
-from pko.progress.target_repo import load_target, open_repo_source
-from pko.render.progress_report import render_progress_report
-
-# app.py -> web -> pko -> backend -> корень репозитория, рядом с ним frontend/.
-REPO_ROOT = Path(__file__).resolve().parents[3]
-FRONTEND_DIR = REPO_ROOT / "frontend"
+from pko.web import analyses
 
 app = FastAPI(title="PKO progress")
 
@@ -40,25 +39,28 @@ def _handle_pko_error(request: Request, exc: PkoError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"message": exc.message, "hint": exc.hint})
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+# Пауза между шагами реального агента (не скриптованного тестового LLM)
+# может доходить до `ChatClient.timeout` (120с, backend/pko/llm/client.py) —
+# без периодического события простаивающее HTTP-соединение рискует быть
+# закрытым промежуточным прокси/балансировщиком, у которых idle-таймаут
+# часто короче. `: ...\n\n` — SSE-комментарий: `EventSource` браузера его
+# не отдаёт как `message`, только держит соединение видимо активным.
+_HEARTBEAT_SECONDS = 15
 
 
-@app.post("/api/progress")
-async def api_progress(
-    plan: UploadFile = File(...),
-    repo: str = Form(...),
+def _get_job_or_404(analysis_id: str) -> analyses.AnalysisJob:
+    job = analyses.get_job(analysis_id)
+    if job is None:
+        raise PkoError("Анализ не найден.", hint=f"неизвестный analysis_id: {analysis_id!r}")
+    return job
+
+
+@app.post("/api/analyses")
+async def create_analysis(
+    presentation: UploadFile = File(...),
+    repository: str = Form(...),
     branch: str = Form(""),
 ) -> JSONResponse:
-    if not plan.filename or not plan.filename.lower().endswith(".pptx"):
-        raise PkoError(
-            "Файл плана должен быть .pptx.",
-            hint=f"получено имя файла: {plan.filename!r}",
-        )
-    if not repo.strip():
-        raise PkoError("Не указан репозиторий.", hint="SSH-ссылка или локальный путь")
-
     spec = get_spec("matcher")
     if spec is None:
         raise PkoError(
@@ -67,20 +69,57 @@ async def api_progress(
                  "перед запуском `pko serve` — роль matcher использует его по умолчанию; "
                  "либо настройте PKO_MATCHER_* отдельно.",
         )
-    # Необязательная роль — без неё просто не будет сводного вывода в отчёте.
+    # Необязательная роль — без неё просто не будет сводного вывода в модели.
     reporter = get_spec("reporter")
 
-    with tempfile.TemporaryDirectory(prefix="pko-progress-upload-") as tmp:
-        plan_path = Path(tmp) / Path(plan.filename).name
-        plan_path.write_bytes(await plan.read())
+    job = analyses.create_analysis(
+        presentation_bytes=await presentation.read(),
+        presentation_filename=presentation.filename or "",
+        repository=repository,
+        branch=branch,
+        spec=spec,
+        reporter=reporter,
+    )
+    return JSONResponse({"analysis_id": job.id, "status": job.status})
 
-        git_repo, name = open_repo_source(repo.strip(), branch=branch.strip() or None)
-        target = load_target(git_repo, branch.strip() or None)
-        model = run_progress(plan_path, name, target, spec, reporter=reporter)
 
-    return JSONResponse({
-        "html": render_progress_report(model),
-        "counts": model.counts(),
-        "progress_ratio": model.progress_ratio(),
-        "meta": model.meta,
-    })
+@app.get("/api/analyses/{analysis_id}/events")
+async def stream_analysis_events(analysis_id: str) -> StreamingResponse:
+    job = _get_job_or_404(analysis_id)
+
+    async def generate():
+        # Задача могла завершиться раньше, чем клиент открыл это соединение
+        # (например, `EventSource` браузера переподключается после разрыва
+        # сети) — тогда очередь уже пуста и блокирующий `get()` повис бы
+        # навсегда. В этом случае сразу отдаём терминальное событие вместо
+        # чтения из очереди.
+        if job.status != "PROCESSING":
+            terminal = {"type": "analysis_ready"} if job.status == "READY" else {"type": "error", **(job.error or {})}
+            yield f"data: {json.dumps(terminal, ensure_ascii=False)}\n\n"
+            return
+
+        while True:
+            # `queue.Queue.get` блокирует поток — уводим в threadpool, чтобы не
+            # держать event loop; сама очередь на задачу одна (один подписчик).
+            # Таймаут — не для отмены, а чтобы регулярно возвращаться сюда и
+            # отдать heartbeat, если реальный агент надолго задумался.
+            try:
+                event = await anyio.to_thread.run_sync(lambda: job.events.get(timeout=_HEARTBEAT_SECONDS))
+            except queue.Empty:
+                yield ": keepalive\n\n"
+                continue
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            if event.get("type") in ("analysis_ready", "error"):
+                break
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@app.get("/api/analyses/{analysis_id}")
+async def get_analysis(analysis_id: str) -> JSONResponse:
+    job = _get_job_or_404(analysis_id)
+    if job.status == "PROCESSING":
+        return JSONResponse({"status": "PROCESSING"})
+    if job.status == "ERROR":
+        return JSONResponse(status_code=400, content={"status": "ERROR", **(job.error or {})})
+    return JSONResponse({"status": "READY", **(job.result or {})})

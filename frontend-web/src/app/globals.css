@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Токены shadcn/ui (--primary/--background/--muted/…) переопределены под
+   палитру остальных PKO-отчётов (backend/pko/render/base.py::PAGE_CSS +
+   лавандовый акцент backend/pko/render/progress_report.py) — не generic
+   серый из дефолтной темы shadcn, чтобы это приложение и офлайн-HTML-отчёт
+   выглядели одним продуктом. Тёмная тема сознательно не заведена — её нет ни
+   в одном другом представлении PKO, добавлять его здесь заранее незачем. */
+:root {
+  --background: #ffffff;
+  --foreground: #1e2229;
+  --card: #ffffff;
+  --card-foreground: #1e2229;
+  --popover: #ffffff;
+  --popover-foreground: #1e2229;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: #f8f9fb;
+  --secondary-foreground: #1e2229;
+  --muted: #f8f9fb;
+  --muted-foreground: #5e6879;
+  --accent: #f3e5fd;
+  --accent-foreground: #1e2229;
+  --destructive: #dc2626;
+  --border: #e4d6fa;
+  --input: #e4d6fa;
+  --ring: #7c3aed;
+  --radius: 0.5rem;
+
+  /* Статусные цвета вердикта (DONE/PARTIAL/NOT_STARTED/UNCLEAR) — те же имена
+     и значения, что и в backend/pko/render/base.py, чтобы `item.color` из
+     API ("green"/"amber"/"red"/"purple") можно было подставлять в
+     `var(--{color})`/`var(--{color}-light)` один в один, без своей копии. */
+  --green: #059669;
+  --green-light: #ecfdf5;
+  --amber: #d97706;
+  --amber-light: #fffbeb;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --purple: #7c3aed;
+  --purple-light: #f5f3ff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Дашборд «Путь» — три раскрашенных по статусу слоя (шевроны/описания/
+   комментарии), см. components/dashboard/. Портировано из
+   frontend-app/src/styles.css: тот же дашборд, здесь — отдельное
+   приложение, а не встраивание в чужую страницу, поэтому без
+   .slide-dashboard-скоупинга. */
+.journey-row { display: flex; gap: 0.5rem; }
+
+@keyframes journey-chevron-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.journey-chevron {
+  flex: 1 1 0; min-width: 0; width: 100%; height: auto; display: block;
+  transform-box: fill-box; transform-origin: center;
+  animation: journey-chevron-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 200ms ease-out;
+}
+.journey-chevron:hover { transform: translateY(-2px); }
+/* Маска заливки — не прямоугольник, а большой блок с таким же остриём, как
+   у самой фигуры (см. Chevron.tsx) — сдвигается по X, поэтому граница
+   заливки идёт под тем же углом, что скос фигуры, а не прямым срезом. */
+.journey-chevron-fill-mask { transition: transform 1000ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .journey-chevron { animation: none; }
+  .journey-chevron-fill-mask { transition: none; }
+}
+.journey-chevron-title {
+  width: 100%; height: 100%; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  /* x1/width пресета chevron ≈ 33.62/220 ≈ 15.3% — выемка слева и остриё
+     справа одной глубины по формуле, поэтому паддинг симметричный (было
+     15%/16% "на глаз", из-за чего текст визуально съезжал вправо). */
+  padding: 0 15.3%;
+}
+.journey-chevron-title-text {
+  display: -webkit-box; -webkit-box-orient: vertical;
+  font-size: 16px; font-weight: 600; line-height: 1.25; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: 3;
+}
+
+.stage-cell {
+  flex: 1; min-width: 0; border-radius: 8px; padding: 0.75rem 1rem;
+  font-size: 0.85rem; line-height: 1.4;
+}
+.stage-cell-green { background: var(--green-light); }
+.stage-cell-amber { background: var(--amber-light); }
+.stage-cell-red { background: var(--red-light); }
+.stage-cell-purple { background: var(--purple-light); }
+
+@media (max-width: 768px) {
+  .journey-row { flex-direction: column; }
+}

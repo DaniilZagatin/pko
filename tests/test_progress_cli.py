@@ -110,9 +110,12 @@ class ProgressCliTest(unittest.TestCase):
         self.assertEqual(model["summary_source"], "llm")
         self.assertIn("реализована", model["summary"])
 
+        # Раздел с постатусными карточками (и путём/строкой evidence в HTML)
+        # убран из отчёта — эти данные по-прежнему в JSON-модели (проверено
+        # выше), в HTML теперь только то, что уходит в дашборд «Путь».
         html = report.read_text(encoding="utf-8")
         self.assertIn("API постановки задач", html)
-        self.assertIn("backend/src/api/v1/router.py:7", html)
+        self.assertIn("Эндпоинт постановки задачи реализован.", html)
 
     def test_missing_plan_file_fails_before_touching_repo(self):
         exit_code = cli.main([

@@ -102,6 +102,12 @@ def get_spec(
     extra: dict[str, Any] | None = None
     if thinking and "deep" in model.lower():
         extra = {"chat_template_kwargs": {"enable_thinking": True}}
+    # На части vLLM-развёртываний (замечено на реальном стенде) шаблон чата
+    # по умолчанию включает рассуждение, если ключ enable_thinking вообще не
+    # передан, — тогда даже при thinking=False весь бюджет токенов уходит в
+    # рассуждение, а content приходит пустым. Если это всплывёт снова, чинить
+    # веткой elif: явно передавать enable_thinking=False для not thinking,
+    # а не просто оставлять extra_body пустым.
 
     return ModelSpec(role=role, base_url=base_url.rstrip("/"), model=model,
                      api_key=api_key, extra_body=extra)

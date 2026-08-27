@@ -6,6 +6,12 @@
       "runtimeExecutable": "py",
       "runtimeArgs": ["-3.13", "-m", "pko.cli", "serve"],
       "port": 8000
+    },
+    {
+      "name": "frontend-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "frontend-web"],
+      "port": 3000
     }
   ]
 }

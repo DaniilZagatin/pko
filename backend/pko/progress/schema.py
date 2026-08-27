@@ -79,10 +79,15 @@ class ItemVerdict:
     status: str
     explanation: str
     evidence: list[EvidenceRef] = field(default_factory=list)
+    # Оценка агента, насколько пункт готов, 0-100 — для заливки шеврона в
+    # дашборде-пути. В отличие от evidence, код не может это проверить, только
+    # показать как есть, поэтому единственная гарантия здесь — диапазон.
+    progress: int = 0
 
     def __post_init__(self) -> None:
         if self.status not in STATUSES:
             raise ValueError(f"неизвестный статус пункта плана: {self.status}")
+        self.progress = max(0, min(100, int(self.progress)))
 
     @property
     def verified_evidence(self) -> list[EvidenceRef]:
@@ -105,6 +110,7 @@ class ItemVerdict:
             "status": self.status,
             "explanation": self.explanation,
             "grounded": self.is_grounded,
+            "progress": self.progress,
             "evidence": [e.to_dict() for e in self.evidence],
         }
 

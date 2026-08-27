@@ -5,6 +5,10 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+# frontend-app/dist/ уже покрыт правилом dist/ выше — не собранный
+# React-бандл, не коммитится, собирается локально (см. README).
+node_modules/
+frontend-web/.next/
 pko-progress-out/
 *.bak
 tests/fixtures/mini_repo/

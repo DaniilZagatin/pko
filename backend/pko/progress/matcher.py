@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from pko.errors import LlmError
 from pko.extractors.base import Tree
@@ -77,9 +77,17 @@ _AGENT_SYSTEM = (
     "инструментами; basis — короткое основание своими словами, обязательно содержащее "
     "конкретное имя (функции, класса, эндпоинта, файла), которое реально стоит рядом со "
     "строкой — по нему проверяется ссылка. Если подтверждения не нашёл — отправь "
-    "NOT_STARTED с пустым evidence, не выдумывай ссылки. За один ход можно вызвать один или "
-    "несколько инструментов, включая несколько submit_verdict подряд, если уверен сразу по "
-    "нескольким пунктам."
+    "NOT_STARTED с пустым evidence, не выдумывай ссылки. Дополнительно укажи progress — свою "
+    "оценку процента готовности пункта (0-100): для DONE это 100, для NOT_STARTED — 0, для "
+    "PARTIAL/UNCLEAR — своя оценка на глаз.\n"
+    "explanation читает руководитель, не разработчик: пиши его бизнес-языком — что по факту "
+    "реализовано и в каком состоянии пункт, как это выглядит для пользователя/процесса. Не "
+    "упоминай код: ни путей к файлам, ни имён функций/классов/эндпоинтов, ни тестов — это "
+    "язык evidence/basis, не explanation. Не ограничивайся пересказом статуса одним "
+    "предложением («сделано»/«не начато») — добавь содержательное наблюдение по существу "
+    "пункта: чего именно не хватает для PARTIAL/UNCLEAR, в чём риск или ограничение, что "
+    "стоит уточнить у команды. За один ход можно вызвать один или несколько инструментов, "
+    "включая несколько submit_verdict подряд, если уверен сразу по нескольким пунктам."
 )
 
 _SUBMIT_VERDICT_SCHEMA: dict[str, Any] = {
@@ -99,7 +107,14 @@ _SUBMIT_VERDICT_SCHEMA: dict[str, Any] = {
                 "description": {"type": "string", "description": "краткое описание пункта своими словами"},
                 "source_slide": {"type": "integer", "description": "номер слайда, с которого взят пункт — только реально существующий во входе"},
                 "status": {"type": "string", "enum": list(STATUSES)},
-                "explanation": {"type": "string", "description": "объяснение вердикта своими словами"},
+                "explanation": {
+                    "type": "string",
+                    "description": "бизнес-объяснение вердикта для руководителя: что реализовано и в "
+                                   "каком состоянии пункт, плюс содержательный комментарий по существу "
+                                   "(риск/ограничение/чего не хватает) — без путей к файлам, имён "
+                                   "функций/классов/эндпоинтов и упоминаний тестов",
+                },
+                "progress": {"type": "integer", "description": "оценка процента готовности пункта, 0-100"},
                 "evidence": {
                     "type": "array",
                     "description": "ссылки на код, подтверждающие вердикт; пусто, если статус NOT_STARTED",
@@ -152,11 +167,16 @@ def run_agent(
     spec: ModelSpec | None,
     client: ChatClient | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
+    on_verdict: Callable[[PlanItem, ItemVerdict], None] | None = None,
 ) -> AgentResult:
     """Выделить пункты плана из слайдов и сопоставить их с кодом — одна сессия.
 
     `client` — тестовая инъекция по образцу остальных LLM-ролей: без неё
     `ChatClient` по умолчанию читает/пишет реальный `~/.pko/llm-cache`.
+
+    `on_verdict` — необязательный колбэк для live-прогресса (веб-эндпоинт):
+    вызывается сразу после того, как очередной `submit_verdict` принят (не на
+    отклонённый). Без колбэка (`None`) поведение не меняется.
     """
     if spec is None:
         return AgentResult(notes=["Matcher не настроен: план и вердикты не получены"])
@@ -169,7 +189,9 @@ def run_agent(
     user = "Слайды презентации:\n\n" + "\n\n".join(render_slide(s) for s in content_slides)
 
     chat_client = client if client is not None else ChatClient(spec=spec)
-    items, verdicts, notes = _run_session(user, known_slides, content_slides, tree, chat_client, max_steps)
+    items, verdicts, notes = _run_session(
+        user, known_slides, content_slides, tree, chat_client, max_steps, on_verdict=on_verdict
+    )
 
     ungrounded = sum(1 for v in verdicts if v.status in ("DONE", "PARTIAL") and not v.is_grounded)
     if ungrounded:
@@ -210,6 +232,7 @@ def _run_session(
     tree: Tree,
     chat_client: ChatClient,
     max_steps: int,
+    on_verdict: Callable[[PlanItem, ItemVerdict], None] | None = None,
 ) -> tuple[list[PlanItem], list[ItemVerdict], list[str]]:
     """Цикл «пункт → evidence → submit_verdict → следующий пункт» до `finish`."""
     tools = ToolBox(tree, slides)
@@ -284,6 +307,8 @@ def _run_session(
                     items_by_id[item.id] = item
                     verdicts_by_id[item.id] = verdict
                     tool_content = "вердикт принят"
+                    if on_verdict is not None:
+                        on_verdict(item, verdict)
                 messages.append({"role": "tool", "tool_call_id": call_id, "content": tool_content})
                 continue
 
@@ -358,6 +383,10 @@ def _parse_final(item: PlanItem, raw: object, tree: Tree) -> ItemVerdict:
     if status not in STATUSES:
         status = "UNCLEAR"
     explanation = str(raw.get("explanation") or "").strip()
+    try:
+        progress = int(raw.get("progress"))
+    except (TypeError, ValueError):
+        progress = 0
 
     evidence: list[EvidenceRef] = []
     for raw_ev in raw.get("evidence") or []:
@@ -377,7 +406,8 @@ def _parse_final(item: PlanItem, raw: object, tree: Tree) -> ItemVerdict:
             verified=result.ok, reason=result.reason,
         ))
 
-    verdict = ItemVerdict(item_id=item.id, status=status, explanation=explanation, evidence=evidence)
+    verdict = ItemVerdict(item_id=item.id, status=status, explanation=explanation,
+                          evidence=evidence, progress=progress)
     _guard_explanation(verdict, tree)
     return verdict
 

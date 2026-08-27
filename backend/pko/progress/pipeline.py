@@ -10,14 +10,22 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Any, Callable
 
 from pko.errors import PkoError
 from pko.llm.client import ChatClient
 from pko.llm.registry import ModelSpec
 from pko.progress.matcher import DEFAULT_MAX_STEPS, find_unclaimed_paths, run_agent
-from pko.progress.schema import ProgressModel
+from pko.progress.schema import ItemVerdict, PlanItem, ProgressModel
 from pko.progress.summarize import summarize_progress
 from pko.progress.target_repo import TargetRepo
+
+# Событие — (kind, data), например ("presentation_parsed", {"slide_count": 12})
+# или ("claim_verified", {"title": "...", "status": "DONE"}). Один и тот же
+# колбэк используется и для грубых фаз пайплайна, и (через адаптер ниже) для
+# каждого принятого вердикта агента — веб-эндпоинту не нужно различать
+# источник, только складывать всё в один SSE-поток по порядку.
+ProgressEvent = Callable[[str, dict[str, Any]], None]
 
 
 def run_progress(
@@ -29,6 +37,7 @@ def run_progress(
     max_steps: int = DEFAULT_MAX_STEPS,
     reporter: ModelSpec | None = None,
     reporter_client: ChatClient | None = None,
+    on_event: ProgressEvent | None = None,
 ) -> ProgressModel:
     """Собрать ProgressModel: PPTX + репозиторий → единый агент → сводный вывод.
 
@@ -43,6 +52,10 @@ def run_progress(
     `reporter`, в отличие от единого агента (`spec`), необязателен — без него
     (`None`) сводный вывод просто не формируется, весь остальной отчёт
     собирается как обычно.
+
+    `on_event`, как и `reporter`, необязателен (`None` — поведение не
+    меняется) — точка расширения для живого прогресса веб-эндпоинта, синхронный
+    CLI её не использует.
     """
     try:
         from pko.progress.pptx_reader import read_deck
@@ -53,7 +66,17 @@ def run_progress(
         ) from exc
 
     slides = read_deck(plan_path)
-    result = run_agent(slides, target.tree, spec, client=client, max_steps=max_steps)
+    if on_event is not None:
+        on_event("presentation_parsed", {"slide_count": len(slides)})
+
+    on_verdict = None
+    if on_event is not None:
+        def on_verdict(item: PlanItem, verdict: ItemVerdict) -> None:
+            on_event("claim_verified", {"title": item.title, "status": verdict.status})
+
+    result = run_agent(
+        slides, target.tree, spec, client=client, max_steps=max_steps, on_verdict=on_verdict
+    )
     if not result.usable:
         raise PkoError(
             "Не удалось получить пункты плана и вердикты.",
@@ -74,6 +97,8 @@ def run_progress(
         gaps=result.notes,
     )
 
+    if on_event is not None:
+        on_event("summarizing", {})
     summary = summarize_progress(model, reporter, client=reporter_client)
     model.summary = summary.text
     model.summary_source = summary.source
