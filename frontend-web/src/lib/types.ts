@@ -54,10 +54,12 @@ export interface ApiErrorBody {
 
 // События SSE (`GET /api/analyses/{id}/events`) — ровно то, что кладёт в
 // очередь backend/pko/web/analyses.py::_execute (`emit("phase", {...})` —
-// только repository_cloning/repository_ready) и адаптер `on_event`,
-// передаваемый в `run_progress` (`presentation_parsed`/`claim_verified`/
-// `summarizing` — прилетают как отдельные `type`, не завёрнутые в "phase").
-export type PhaseName = "repository_cloning" | "repository_ready";
+// только materials_loading/materials_ready, источник-нейтральные: и git, и
+// файлы, и оба сразу проходят через одни и те же два имени) и адаптер
+// `on_event`, передаваемый в `run_progress` (`presentation_parsed`/
+// `claim_verified`/`summarizing` — прилетают как отдельные `type`, не
+// завёрнутые в "phase").
+export type PhaseName = "materials_loading" | "materials_ready";
 
 export type AnalysisEvent =
   | { type: "phase"; phase: PhaseName; label: string }

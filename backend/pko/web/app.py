@@ -58,9 +58,17 @@ def _get_job_or_404(analysis_id: str) -> analyses.AnalysisJob:
 @app.post("/api/analyses")
 async def create_analysis(
     presentation: UploadFile = File(...),
-    repository: str = Form(...),
+    repository: str = Form(""),
     branch: str = Form(""),
+    files: list[UploadFile] = File([]),
 ) -> JSONResponse:
+    """`repository` и `files` — два независимых необязательных источника
+    evidence (см. докстринг `analyses.create_analysis`), не выбор одного из
+    вариантов — можно и репозиторий, и файлы поверх (например
+    `metrics.json`, которого нет в самом репозитории). Оба пустые — тоже
+    валидный запрос: агент получает пустой снимок материалов и сам решает,
+    что писать в вердикт.
+    """
     spec = get_spec("matcher")
     if spec is None:
         raise PkoError(
@@ -72,11 +80,22 @@ async def create_analysis(
     # Необязательная роль — без неё просто не будет сводного вывода в модели.
     reporter = get_spec("reporter")
 
+    # `files=[UploadFile()]` пустышка — Starlette так отдаёт поле, которое
+    # клиент вообще не передал в multipart-форме, а не пустой список; отличать
+    # её от настоящего файла с пустым именем не нужно — с пустым именем
+    # `local_source._safe_relative_path` его всё равно отклонит как файл.
+    uploads = [
+        (f.filename, await f.read())
+        for f in files
+        if f.filename
+    ]
+
     job = analyses.create_analysis(
         presentation_bytes=await presentation.read(),
         presentation_filename=presentation.filename or "",
         repository=repository,
         branch=branch,
+        uploads=uploads,
         spec=spec,
         reporter=reporter,
     )

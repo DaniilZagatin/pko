@@ -92,12 +92,16 @@ class WebAnalysesTest(unittest.TestCase):
 
         self.addCleanup(_restore_env)
 
-    def _create(self, repository: str, branch: str = "", plan_path: Path | None = None):
+    def _create(self, repository: str = "", branch: str = "", plan_path: Path | None = None,
+                extra_files: dict[str, bytes] | None = None):
         plan_path = plan_path or self.plan_path
         with open(plan_path, "rb") as fh:
+            upload_files = [("presentation", (plan_path.name, fh, "application/octet-stream"))]
+            for name, data in (extra_files or {}).items():
+                upload_files.append(("files", (name, data, "application/octet-stream")))
             return self.client.post(
                 "/api/analyses",
-                files={"presentation": (plan_path.name, fh, "application/octet-stream")},
+                files=upload_files,
                 data={"repository": repository, "branch": branch},
             )
 
@@ -126,8 +130,8 @@ class WebAnalysesTest(unittest.TestCase):
             "phase", "phase", "presentation_parsed", "claim_verified", "summarizing",
             "analysis_ready",
         ])
-        self.assertEqual(events[0]["phase"], "repository_cloning")
-        self.assertEqual(events[1]["phase"], "repository_ready")
+        self.assertEqual(events[0]["phase"], "materials_loading")
+        self.assertEqual(events[1]["phase"], "materials_ready")
         self.assertEqual(events[3], {
             "type": "claim_verified", "title": "API постановки задач", "status": "DONE",
         })
@@ -177,6 +181,74 @@ class WebAnalysesTest(unittest.TestCase):
         self.assertIn(": keepalive\n\n", resp.text)
         events = _parse_sse(resp.text)
         self.assertEqual(events, [{"type": "analysis_ready"}])
+
+    def test_files_only_analysis_runs_without_any_repository(self):
+        submit_answer = _tool_call(
+            "call_submit", "submit_verdict",
+            item_id="model", title="Обучение модели", source_slide=1,
+            status="DONE", explanation="Целевая метрика достигнута.",
+        )
+        ChatClient._request = scripted(submit_answer, _tool_call("call_finish", "finish"))
+
+        create_resp = self._create(extra_files={"metrics.json": b'{"roc_auc": 0.88}'})
+        self.assertEqual(create_resp.status_code, 200, create_resp.text)
+        analysis_id = create_resp.json()["analysis_id"]
+
+        events = _parse_sse(self.client.get(f"/api/analyses/{analysis_id}/events").text)
+        self.assertEqual(events[-1]["type"], "analysis_ready")
+        self.assertEqual(events[0]["phase"], "materials_loading")
+
+        result = self.client.get(f"/api/analyses/{analysis_id}").json()
+        self.assertEqual(result["status"], "READY")
+        # Без репозитория meta["repo"] пусто — фронт уже показывает "Проект"
+        # как фолбэк (DashboardHeader.tsx), падать здесь не должно.
+        self.assertEqual(result["meta"]["repo"], "")
+
+    def test_repository_and_files_together_are_merged_into_one_analysis(self):
+        submit_answer = _tool_call(
+            "call_submit", "submit_verdict",
+            item_id="tasks-api", title="API постановки задач", source_slide=2,
+            status="DONE", explanation="Реализовано и подтверждено метриками.",
+            evidence=[{"path": "metrics.json", "line": 1, "basis": "roc_auc в metrics.json"}],
+        )
+        ChatClient._request = scripted(submit_answer, _tool_call("call_finish", "finish"))
+
+        create_resp = self._create(
+            repository=str(ensure_fixture()),
+            extra_files={"metrics.json": b'{"roc_auc": 0.9}'},
+        )
+        self.assertEqual(create_resp.status_code, 200, create_resp.text)
+        analysis_id = create_resp.json()["analysis_id"]
+        self.client.get(f"/api/analyses/{analysis_id}/events")  # дождаться завершения
+
+        result = self.client.get(f"/api/analyses/{analysis_id}").json()
+        self.assertEqual(result["status"], "READY")
+        # Репозиторий остался источником имени/коммита — файлы дополняют, не подменяют его.
+        self.assertNotEqual(result["meta"]["repo"], "")
+
+    def test_neither_repository_nor_files_still_runs_against_an_empty_workspace(self):
+        # Не ошибка запроса: агент получает пустой снимок материалов и сам
+        # решает, что писать в вердикт — здесь он честно отчитывается, что
+        # подтверждения не нашёл (тот же путь, что и "в репозитории пусто").
+        submit_answer = _tool_call(
+            "call_submit", "submit_verdict",
+            item_id="tasks-api", title="API постановки задач", source_slide=2,
+            status="NOT_STARTED", explanation="Подтверждающих материалов не предоставлено.",
+        )
+        ChatClient._request = scripted(submit_answer, _tool_call("call_finish", "finish"))
+
+        create_resp = self._create()
+        self.assertEqual(create_resp.status_code, 200, create_resp.text)
+        analysis_id = create_resp.json()["analysis_id"]
+
+        events = _parse_sse(self.client.get(f"/api/analyses/{analysis_id}/events").text)
+        self.assertEqual(events[-1]["type"], "analysis_ready")
+
+        result = self.client.get(f"/api/analyses/{analysis_id}").json()
+        self.assertEqual(result["status"], "READY")
+        self.assertEqual(result["meta"]["repo"], "")
+        [item] = result["items"]
+        self.assertEqual(item["status"], "NOT_STARTED")
 
     def test_unknown_analysis_id_is_a_clean_400_not_a_500(self):
         resp = self.client.get("/api/analyses/an_doesnotexist")

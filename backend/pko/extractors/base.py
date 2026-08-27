@@ -8,11 +8,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Protocol, runtime_checkable
 
 from pko.git.repo import GitRepo
 from pko.model import taxonomy
 from pko.model.schema import Evidence
+
+
+@runtime_checkable
+class FileTree(Protocol):
+    """Контракт, которым реально пользуются `ToolBox`/`extract_all`: список
+    путей + чтение по пути. Ни то, ни другое не трогает `Tree.repo`/`Tree.sha`
+    напрямую, поэтому источником может быть не только git — `Tree` уже
+    структурно ему соответствует, без единой правки. См.
+    `pko.progress.local_source.LocalTree` — тот же контракт для ZIP-архива
+    или отдельных загруженных файлов.
+    """
+
+    files: list[str]
+
+    def read(self, path: str) -> str | None: ...
 
 # Виды фактов, которые умеют производить экстракторы.
 #

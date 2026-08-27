@@ -23,12 +23,19 @@ async function parseOrThrow<T>(resp: Response): Promise<T> {
 export async function createAnalysis(
   presentation: File,
   repository: string,
-  branch: string
+  branch: string,
+  files: File[]
 ): Promise<CreateAnalysisResponse> {
+  // Репозиторий и файлы — два независимых необязательных источника evidence,
+  // не выбор одного из вариантов (см. backend/pko/web/analyses.py::create_analysis)
+  // — можно и репозиторий, и файлы поверх; сервер требует хотя бы один.
   const form = new FormData();
   form.set("presentation", presentation);
   form.set("repository", repository);
   form.set("branch", branch);
+  for (const file of files) {
+    form.append("files", file);
+  }
   const resp = await fetch("/api/analyses", { method: "POST", body: form });
   return parseOrThrow<CreateAnalysisResponse>(resp);
 }

@@ -28,7 +28,6 @@ export function RepositoryInput({
           placeholder="git@host:project/repo.git или локальный путь"
           value={repository}
           onChange={(e) => onRepositoryChange(e.target.value)}
-          required
         />
       </div>
       <div className="sm:w-40 flex flex-col gap-2">

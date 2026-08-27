@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from pko.extractors.base import Tree
+from pko.extractors.base import FileTree, Tree
 from pko.extractors.runner import Extraction, extract_all
 from pko.git.remote import DEFAULT_CACHE_ROOT, ensure_mirror
 from pko.git.repo import GitRepo
@@ -20,10 +20,21 @@ from pko.git.url import parse_repo_url
 
 @dataclass(frozen=True)
 class TargetRepo:
-    repo: GitRepo
+    """Снимок целевых материалов, из которых агент берёт evidence.
+
+    `repo`/`sha`/`branch` осмысленны только когда источник — git; для
+    материалов, загруженных без репозитория (`progress/local_source.py`),
+    `repo=None`, `sha=""`, `branch=""` — не заглушка ради заглушки: они
+    попадают только в `meta["commit"]`/`meta["branch"]` отчёта, где пустое
+    значение уже отображается как `—`/пусто. `tree` — `FileTree`, не
+    обязательно git-`Tree`: агенту и `extract_all` (см. `FileTree`) без
+    разницы, что стоит за списком файлов и чтением по пути.
+    """
+
+    repo: GitRepo | None
     sha: str
     branch: str
-    tree: Tree
+    tree: FileTree
     extraction: Extraction
 
 

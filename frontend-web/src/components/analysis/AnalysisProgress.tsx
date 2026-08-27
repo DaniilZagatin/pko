@@ -4,8 +4,8 @@ import type { AnalysisEvent, PhaseName } from "@/lib/types";
 // `status` (см. backend/pko/web/analyses.py, backend/pko/progress/pipeline.py).
 // Соответствие бизнес-тексту — целиком дело фронтенда.
 const PHASE_LABELS: Record<PhaseName, string> = {
-  repository_cloning: "Подключаем репозиторий",
-  repository_ready: "Репозиторий подключён",
+  materials_loading: "Обрабатываем материалы проекта",
+  materials_ready: "Материалы проекта готовы",
 };
 
 const STATUS_ICON: Record<string, string> = {
