@@ -1,7 +1,6 @@
 import { Chevron } from "./Chevron";
 import { SwimLane } from "./SwimLane";
 import { CommentRow } from "./CommentRow";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Контракт данных: backend/pko/render/progress_report.py сериализует ровно
 // эти поля из ProgressModel.verdicts в window.__JOURNEY_ITEMS__. `label` —
@@ -16,32 +15,20 @@ export interface JourneyItem {
   explanation: string;
 }
 
-// Вкладки, бейдж «ОР», заголовок, «Сегмент»/«Сценарий» и все дорожки под
-// шевронами кроме самого ряда шевронов — статичное оформление слайда, не
-// данные: у нас нет источника ни для сегмента/сценария конкретного
-// документа, ни для деления по годам/скоупу. Осознанно оставлено как
-// визуальный каркас (см. обсуждение) — реальные данные сюда подключаются
-// отдельным следующим шагом.
+// Бейдж «ОР», заголовок, «Сегмент»/«Сценарий» и все дорожки под шевронами
+// кроме самого ряда шевронов — статичное оформление слайда, не данные: у нас
+// нет источника ни для сегмента/сценария конкретного документа, ни для
+// деления по годам/скоупу. Осознанно оставлено как визуальный каркас (см.
+// обсуждение) — реальные данные сюда подключаются отдельным следующим шагом.
+// Вкладки «зачем/что/как» были частью того же каркаса, но без контента под
+// ними переключение ничего не показывало — убраны как вводящий в заблуждение
+// неработающий элемент, а не отложены на потом.
 export function Dashboard({ items }: { items: JourneyItem[] }) {
   if (items.length === 0) {
     return null;
   }
   return (
     <div className="slide-dashboard">
-      <Tabs defaultValue="как">
-        <TabsList className="mb-4 h-auto gap-2 bg-transparent p-0">
-          {["зачем", "что", "как"].map((tab) => (
-            <TabsTrigger
-              key={tab}
-              value={tab}
-              className="rounded-full border border-border px-4 py-1.5 text-muted-foreground shadow-none data-active:border-foreground data-active:bg-foreground data-active:text-background dark:data-active:bg-foreground"
-            >
-              {tab}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       <div className="slide-header">
         <div className="slide-header-left">
           <span className="slide-badge">ОР</span>

@@ -22,6 +22,18 @@ export function FileDropzone({ files, onChange, accept, multiple, label, hint }:
 
   return (
     <div>
+      {/* input идёт перед label в DOM (не наоборот), чтобы `peer` мог поймать
+          его focus-visible через следующий CSS-селектор — иначе клавиатурный
+          фокус попадал бы на невидимый sr-only элемент без единого видимого
+          индикатора (WCAG 2.2 Focus Appearance). */}
+      <input
+        id={inputId}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        className="peer sr-only"
+        onChange={(e) => onChange(Array.from(e.target.files ?? []))}
+      />
       <label
         htmlFor={inputId}
         onDragOver={(e) => {
@@ -37,6 +49,7 @@ export function FileDropzone({ files, onChange, accept, multiple, label, hint }:
         }}
         className={cn(
           "flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-4 py-8 text-center text-sm cursor-pointer transition-colors",
+          "peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 peer-focus-visible:border-ring",
           isDragOver ? "border-primary bg-accent" : "border-border hover:bg-muted"
         )}
       >
@@ -55,14 +68,6 @@ export function FileDropzone({ files, onChange, accept, multiple, label, hint }:
           </>
         )}
       </label>
-      <input
-        id={inputId}
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        className="sr-only"
-        onChange={(e) => onChange(Array.from(e.target.files ?? []))}
-      />
     </div>
   );
 }

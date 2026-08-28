@@ -1,0 +1,42 @@
+/*
+ * Это НЕ отдельный файл стилей — это добавки, которые нужно руками
+ * вставить в существующий frontend-web/src/app/globals.css.
+ *
+ * Где искать место: в globals.css уже есть секция
+ *   "Дашборд «Путь» — три раскрашенных по статусу слоя..."
+ * с классами .journey-row / .journey-chevron / .stage-cell-*.
+ * Добавки ниже — новые правила для этой же секции, привязанные
+ * к новым/изменённым компонентам (Chevron.tsx, StageEvaluationCard.tsx).
+ *
+ * 1) Сразу после строки:
+ *      .journey-chevron:hover { transform: translateY(-2px); }
+ *    добавить:
+ */
+
+.journey-chevron-selected { transform: translateY(-3px); filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.18)); }
+.journey-chevron-button {
+  all: unset;
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  cursor: pointer;
+}
+.journey-chevron-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/*
+ * 2) Рядом с блоком .stage-cell-green/.stage-cell-amber/.stage-cell-red/
+ *    .stage-cell-purple (перед ним или после — не важно) добавить:
+ */
+
+.stage-eval-card { border-width: 1px; border-style: solid; }
+
+/*
+ * Готово. Никакие другие переменные не нужны — используются уже
+ * существующие --green/--amber/--red/--purple(-light), --primary,
+ * --border, --ring из :root (см. globals.css). Если у вас в проекте
+ * этих CSS-переменных ещё нет — см. README.md, раздел "CSS-переменные".
+ */

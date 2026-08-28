@@ -7,8 +7,9 @@
    палитру остальных PKO-отчётов (backend/pko/render/base.py::PAGE_CSS +
    лавандовый акцент backend/pko/render/progress_report.py) — не generic
    серый из дефолтной темы shadcn, чтобы это приложение и офлайн-HTML-отчёт
-   выглядели одним продуктом. Тёмная тема сознательно не заведена — её нет ни
-   в одном другом представлении PKO, добавлять его здесь заранее незачем. */
+   выглядели одним продуктом. Тёмная тема — только здесь, в веб-интерфейсе
+   (не в офлайн-отчёте frontend-app, который наследует тему хост-страницы):
+   палитра в блоке `.dark` ниже, переключатель — components/layout/ThemeToggle. */
 :root {
   --background: #ffffff;
   --foreground: #1e2229;
@@ -42,6 +43,42 @@
   --red-light: #fef2f2;
   --purple: #7c3aed;
   --purple-light: #f5f3ff;
+}
+
+/* Тёмная тема: не инверсия светлой, а десатурированные/осветлённые тональные
+   варианты того же лавандового акцента и тех же статусных цветов (WCAG —
+   color-dark-mode), подобранные так, чтобы --foreground поверх --{color}-light
+   и --primary-foreground поверх --primary держали ≥4.5:1. Применяется классом
+   `.dark` на <html> (custom-variant выше), который переключает
+   components/layout/ThemeToggle; сохранённый выбор — в localStorage. */
+.dark {
+  --background: #121316;
+  --foreground: #f2f1f5;
+  --card: #1a1b1f;
+  --card-foreground: #f2f1f5;
+  --popover: #1a1b1f;
+  --popover-foreground: #f2f1f5;
+  --primary: #a78bfa;
+  --primary-foreground: #1e1029;
+  --secondary: #222329;
+  --secondary-foreground: #f2f1f5;
+  --muted: #1e1f24;
+  --muted-foreground: #9ea3ae;
+  --accent: #2a2440;
+  --accent-foreground: #f2f1f5;
+  --destructive: #f87171;
+  --border: #2c2d34;
+  --input: #2c2d34;
+  --ring: #a78bfa;
+
+  --green: #34d399;
+  --green-light: #0f2e23;
+  --amber: #fbbf24;
+  --amber-light: #3a2a05;
+  --red: #f87171;
+  --red-light: #3a1212;
+  --purple: #a78bfa;
+  --purple-light: #251b3d;
 }
 
 @theme inline {
@@ -101,6 +138,19 @@
   transition: transform 200ms ease-out;
 }
 .journey-chevron:hover { transform: translateY(-2px); }
+.journey-chevron-selected { transform: translateY(-3px); filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.18)); }
+.journey-chevron-button {
+  all: unset;
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  cursor: pointer;
+}
+.journey-chevron-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 /* Маска заливки — не прямоугольник, а большой блок с таким же остриём, как
    у самой фигуры (см. Chevron.tsx) — сдвигается по X, поэтому граница
    заливки идёт под тем же углом, что скос фигуры, а не прямым срезом. */
@@ -126,7 +176,14 @@
 .stage-cell {
   flex: 1; min-width: 0; border-radius: 8px; padding: 0.75rem 1rem;
   font-size: 0.85rem; line-height: 1.4;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
 }
+.stage-cell:hover { transform: translateY(-2px); box-shadow: 0 4px 10px -4px rgb(0 0 0 / 0.15); }
+@media (prefers-reduced-motion: reduce) {
+  .stage-cell { transition: none; }
+  .stage-cell:hover { transform: none; }
+}
+.stage-eval-card { border-width: 1px; border-style: solid; }
 .stage-cell-green { background: var(--green-light); }
 .stage-cell-amber { background: var(--amber-light); }
 .stage-cell-red { background: var(--red-light); }
